@@ -203,35 +203,78 @@ async function onbNext(){
     setTimeout(()=>askNext(), 350);
   }else{
     document.getElementById('pbar').style.width = '100%';
-    addBub('ai', '✅ 都记下了，正在为你保存…');
     inp.disabled = true;
     document.getElementById('send-btn').disabled = true;
     await finishOnboarding();
   }
 }
 async function finishOnboarding(){
-  const a = answers;
-  const eduDeg = a.level ? (a.major ? a.level + '，' + a.major : a.level) : (a.major||'');
-  const resume = {
-    template:'classic', photo:'',
-    fields:{ 'f-name-en':a.name||'', 'f-email':a.email||'' },
-    edu:[{deg:eduDeg, sch:a.school||'', per:'', gpa:'', det:''}],
-    awards:[],
-    exp: a.jobs ? [{pos:'', co:'', dt:'', bul:a.jobs}] : [],
-    extra:[],
-  };
-  const profile = { name:a.name||'名字1', resume };
+  // AI 整理：原始信息（可能中文/口语）→ 规范英文简历字段
+  let secs = 0;
+  addBub('ai', '🤖 AI 正在把你的资料整理成专业英文简历…（0 秒，约需 1 分钟）');
+  const bub = document.querySelector('#chat .bub:last-child');
+  const tmr = setInterval(()=>{
+    secs++;
+    bub.textContent = '🤖 AI 正在把你的资料整理成专业英文简历…（'+secs+' 秒，约需 1 分钟）';
+    document.getElementById('chat').scrollTop = 1e9;
+  }, 1000);
+
+  let resume, name;
   try{
-    await apiAccount({action:'save', id:acctId, profiles:[profile]});
-    // 同时写一份本地，简历页可立即读到
-    localStorage.setItem('miaotou-resume-v2', JSON.stringify(resume));
-    addBub('ai', '🎉 完成！正在进入职位地图…');
-    setTimeout(()=>location.replace('/'), 1100);
+    const r = await fetch('/api/interview', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({mode:'onboard', answers})
+    });
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.error || ('HTTP '+r.status));
+    resume = buildResume(d);
+    name = d.nameEn || answers.name || '名字1';
   }catch(err){
-    addBub('ai', '保存出错：'+err.message+'\n请稍后重试。');
+    resume = buildResumeRaw();      // AI 失败兜底：先存原始信息，不卡流程
+    name = answers.name || '名字1';
+  }
+  clearInterval(tmr);
+
+  try{
+    await apiAccount({action:'save', id:acctId, profiles:[{name, resume}]});
+    localStorage.setItem('miaotou-resume-v2', JSON.stringify(resume));
+    bub.textContent = '🎉 专业简历已生成，正在进入职位地图…';
+    setTimeout(()=>location.replace('/'), 1300);
+  }catch(err){
+    bub.textContent = '保存出错：'+err.message+'　请稍后重试';
     document.getElementById('answer').disabled = false;
     document.getElementById('send-btn').disabled = false;
   }
+}
+// AI 整理后的规范英文 → 简历结构
+function buildResume(d){
+  return {
+    template:'classic', photo:'',
+    fields:{
+      'f-name-en': d.nameEn || answers.name || '',
+      'f-email':   answers.email || '',
+      'f-obj':     d.objective || '',
+      'sk-misc':   d.skills || ''
+    },
+    edu:(d.education||[]).map(ed=>({deg:ed.degree||'',sch:ed.school||'',
+      per:ed.period||'',gpa:'',det:ed.detail||''})),
+    awards:[],
+    exp:(d.experience||[]).map(x=>({pos:x.position||'',co:x.company||'',
+      dt:x.period||'',bul:(x.bullets||[]).join('\n')})),
+    extra:[]
+  };
+}
+// 兜底：AI 整理失败时，先存原始信息
+function buildResumeRaw(){
+  const a = answers;
+  return {
+    template:'classic', photo:'',
+    fields:{'f-name-en':a.name||'','f-email':a.email||''},
+    edu:[{deg:(a.level?a.level+'，':'')+(a.major||''),sch:a.school||'',per:'',gpa:'',det:''}],
+    awards:[],
+    exp:a.jobs?[{pos:'',co:'',dt:'',bul:a.jobs}]:[],
+    extra:[]
+  };
 }
 
 // Enter 发送

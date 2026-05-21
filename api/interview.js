@@ -30,6 +30,32 @@ const EXTRACT_SYS = `你是香港专业简历顾问。根据下面的访谈对�
   "skills":"skill1, skill2, skill3"
 }`;
 
+const ONBOARD_SYS = `你是香港专业简历顾问。求职者刚填了基本信息，可能是中文、口语化、不规范。
+请把它整理成「香港求职 CV 标准」的英文结构化数据：
+- 学位用规范英文：例「硕士 + 统计学」→「Master of Science in Statistics」，「学士 + 英文」→「Bachelor of Arts in English」；
+- 学校用通用英文名：例「马来亚大学」→「University of Malaya」，「香港中文大学」→「The Chinese University of Hong Kong」；
+- 过往职业整理成英文 experience 条目，每条 2-4 个 bullet，强动词开头；信息不足就写合理的通用职责，绝不要编造具体数字；
+- 写一段 2-3 句英文 OBJECTIVE，结合其学历与背景；
+- 给 6-8 个相关英文技能；
+- 英文名保持求职者填写的写法。
+只输出 JSON，不要 markdown 围栏：
+{
+  "nameEn":"",
+  "objective":"",
+  "education":[{"degree":"","school":"","period":"","detail":""}],
+  "experience":[{"position":"","company":"","period":"","bullets":["bullet 1","bullet 2"]}],
+  "skills":"skill1, skill2, skill3"
+}`;
+
+function parseJsonObject(content) {
+  let t = String(content || "").trim()
+    .replace(/^```json\s*/i, "").replace(/^```\s*/i, "")
+    .replace(/```\s*$/i, "").trim();
+  const s = t.indexOf("{"), e = t.lastIndexOf("}");
+  if (s === -1) throw new Error("AI 未返回有效结果");
+  return JSON.parse(t.slice(s, e + 1));
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -97,6 +123,35 @@ export default async function handler(req, res) {
       result.education = result.education || [];
       result.experience = result.experience || [];
       result.projects = result.projects || [];
+      result.skills = result.skills || "";
+      return res.status(200).json(result);
+    }
+
+    // ── 进站引导整理：原始信息 → 规范英文简历字段 ────────────────────────
+    if (mode === "onboard") {
+      const a = req.body.answers || {};
+      const raw =
+        "姓名：" + (a.name || "") + "\n电邮：" + (a.email || "") +
+        "\n学历：" + (a.level || "") + "\n学校：" + (a.school || "") +
+        "\n专业：" + (a.major || "") + "\n过往职业：" + (a.jobs || "");
+      const completion = await client.chat.completions.create({
+        model: "mimo-v2.5",
+        max_tokens: 3500,
+        messages: [
+          { role: "system", content: ONBOARD_SYS },
+          { role: "user", content: "求职者填写的原始信息如下：\n\n" + raw },
+        ],
+      });
+      let result;
+      try {
+        result = parseJsonObject(completion.choices[0].message.content);
+      } catch {
+        result = {};
+      }
+      result.nameEn = result.nameEn || a.name || "";
+      result.objective = result.objective || "";
+      result.education = result.education || [];
+      result.experience = result.experience || [];
       result.skills = result.skills || "";
       return res.status(200).json(result);
     }
