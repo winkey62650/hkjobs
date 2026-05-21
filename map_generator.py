@@ -94,8 +94,14 @@ LABEL_COLORS = {
 }
 
 SOURCE_COLORS = {
-    "JobsDB": "#e60028",
-    "Indeed": "#2164f3",
+    "JobsDB":     "#e60028",
+    "Indeed":     "#2164f3",
+    "CTgoodjobs": "#f97316",
+    "GovHK":      "#1e7d34",
+    "NGO":        "#0d9488",
+    "Recruit":    "#7c3aed",
+    "JobMarket":  "#db2777",
+    "Glassdoor":  "#0caa41",
 }
 
 
@@ -156,6 +162,13 @@ for j in data:
 print(f"已定位 {sum(len(g['jobs']) for g in loc_groups.values())} 个职位，"
       f"{len(ungrouped)} 个无法定位")
 
+# 无法定位的岗位 → 收进「不限地区」桶，仍可在地图上点开浏览
+if ungrouped:
+    loc_groups["🌐 不限地区 All HK"] = {
+        "lat": 22.165, "lng": 114.10,
+        "name": "🌐 不限地区 All HK", "jobs": ungrouped,
+    }
+
 # ── 构建 JS 数据 ──────────────────────────────────────────────────────────────
 js_locations = []
 for name, grp in loc_groups.items():
@@ -164,6 +177,8 @@ for name, grp in loc_groups.items():
         color  = LABEL_COLORS.get(j.get("label", ""), "#888")
         src    = j.get("source", "")
         sal_txt = j.get("salary", "") or "薪资面议"
+        eff_date = (j.get("effective_date") or j.get("posted_date")
+                    or j.get("first_seen") or "")
         jobs_js.append({
             "title":   j.get("title", ""),
             "company": j.get("company", ""),
@@ -175,9 +190,9 @@ for name, grp in loc_groups.items():
             "label":   j.get("label", ""),
             "color":   color,
             "posted":  j.get("posted", ""),
+            "date":    eff_date,
             "source":  src,
             "src_color": SOURCE_COLORS.get(src, "#888"),
-            "scraped_at": j.get("scraped_at", ""),
         })
     js_locations.append({
         "name": name,
@@ -199,6 +214,7 @@ try:
 except Exception:
     update_str = "—"
 
+gen_date = datetime.utcnow().date().isoformat()
 total_located = sum(len(g["jobs"]) for g in loc_groups.values())
 source_badge_html = " ".join(
     f'<span style="background:{SOURCE_COLORS.get(s,"#888")};color:#fff;'
@@ -234,6 +250,15 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
        transition:.15s;white-space:nowrap}}
 .ftag.on{{background:rgba(255,255,255,.2);color:#fff;border-color:#fff}}
 .ftag:hover{{border-color:#fff;color:#fff}}
+/* 日期筛选 */
+.date-filters{{display:flex;gap:5px;align-items:center}}
+.dtag{{padding:3px 10px;border-radius:14px;font-size:.72rem;font-weight:700;
+       cursor:pointer;transition:.15s;white-space:nowrap;
+       background:rgba(255,255,255,.12);color:rgba(255,255,255,.7);
+       border:1.5px solid transparent}}
+.dtag.on{{background:#fbbf24;color:#1a1a2e;border-color:#fbbf24}}
+.dtag:hover{{color:#fff}}
+.dtag.on:hover{{color:#1a1a2e}}
 .resume-btn{{padding:6px 13px;background:rgba(255,255,255,.15);color:#fff;
              border-radius:6px;font-size:.8rem;font-weight:600;text-decoration:none;
              border:1.5px solid rgba(255,255,255,.35);white-space:nowrap}}
@@ -331,9 +356,16 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   <div class="hdr-left">
     <h1>🗺 香港求职地图</h1>
     <div class="hdr-meta">
-      <span class="hdr-info">共 <strong>{total_located}</strong> 个职位 · 更新于 {update_str}</span>
+      <span class="hdr-info">共 <strong id="total-count">{total_located}</strong> 个职位 · 更新于 {update_str}</span>
       {source_badge_html}
     </div>
+  </div>
+  <div class="date-filters" id="date-filters">
+    <span style="font-size:.72rem;opacity:.7">📅 发布时间</span>
+    <span class="dtag" data-days="3">近3天</span>
+    <span class="dtag" data-days="5">近5天</span>
+    <span class="dtag on" data-days="7">近7天</span>
+    <span class="dtag" data-days="0">全部</span>
   </div>
   <a href="resume.html" class="resume-btn">📄 生成简历</a>
   <div class="hdr-filters" id="hdr-filters">
@@ -390,6 +422,29 @@ let activeCategory = 'all';
 let activeMarkerEl = null;
 let currentJobs    = [];
 let sortBySalary   = false;
+let activeDays     = 7;   // 默认只看近7天
+
+const TODAY = new Date("{gen_date}T00:00:00Z");
+
+function jobAgeDays(j) {{
+  if (!j.date) return 9999;
+  const d = new Date(j.date + "T00:00:00Z");
+  if (isNaN(d)) return 9999;
+  return Math.floor((TODAY - d) / 86400000);
+}}
+function dateOk(j) {{
+  return activeDays === 0 || jobAgeDays(j) <= activeDays;
+}}
+function catOk(j) {{
+  return activeCategory === 'all' || j.label === activeCategory;
+}}
+function ageLabel(j) {{
+  const a = jobAgeDays(j);
+  if (a >= 9999) return '';
+  if (a <= 0) return '今天';
+  if (a === 1) return '昨天';
+  return a + '天前';
+}}
 
 // ── 标记 ──────────────────────────────────────────────────────────────────────
 const markers = [];
@@ -407,6 +462,23 @@ LOCATIONS.forEach((loc, idx) => {{
   marker.on('click', () => openSidebar(loc, idx));
   markers.push({{ marker, loc, idx }});
 }});
+
+// ── 刷新所有标记数字 + 总数 ───────────────────────────────────────────────────
+function refreshMarkers() {{
+  let total = 0;
+  LOCATIONS.forEach((loc, idx) => {{
+    const cnt = loc.jobs.filter(j => catOk(j) && dateOk(j)).length;
+    total += cnt;
+    const el = document.getElementById('mk-' + idx);
+    if (el) {{
+      el.textContent = cnt;
+      el.style.opacity = cnt > 0 ? '1' : '0.25';
+    }}
+  }});
+  const tc = document.getElementById('total-count');
+  if (tc) tc.textContent = total;
+}}
+refreshMarkers();
 
 // ── 侧边栏 ────────────────────────────────────────────────────────────────────
 function openSidebar(loc, idx) {{
@@ -442,15 +514,18 @@ document.getElementById('sort-btn').addEventListener('click', () => {{
 }});
 
 function renderJobs(jobs) {{
-  const cat = activeCategory;
-  let filtered = cat === 'all' ? [...jobs] : jobs.filter(j => j.label === cat);
+  let filtered = jobs.filter(j => catOk(j) && dateOk(j));
 
   if (sortBySalary) {{
     filtered.sort((a, b) => b.sal_num - a.sal_num);
+  }} else {{
+    filtered.sort((a, b) => jobAgeDays(a) - jobAgeDays(b));
   }}
 
+  const dLabel = activeDays === 0 ? '全部' : `近${{activeDays}}天`;
   document.getElementById('side-sub').textContent =
-    `${{filtered.length}} 个职位` + (cat !== 'all' ? `（${{cat}}）` : '');
+    `${{filtered.length}} 个职位 · ${{dLabel}}` +
+    (activeCategory !== 'all' ? `（${{activeCategory}}）` : '');
 
   const list = document.getElementById('job-list');
   if (!filtered.length) {{
@@ -476,7 +551,7 @@ function renderJobs(jobs) {{
         <div class="jc-tags">
           <span class="badge b-cat" style="background:${{j.color}}">${{j.label}}</span>
           <span class="badge b-loc">📍 ${{j.location}}</span>
-          ${{j.posted ? `<span class="badge b-dat">🕐 ${{j.posted}}</span>` : ''}}
+          ${{(() => {{ const al = ageLabel(j); if (!al) return j.posted ? `<span class="badge b-dat">🕐 ${{j.posted}}</span>` : ''; const fresh = jobAgeDays(j) <= 2; return `<span class="badge" style="background:${{fresh?'#dcfce7':'#f1f5f9'}};color:${{fresh?'#166534':'#64748b'}}">🕐 ${{al}}</span>`; }})()}}
         </div>
         <div class="jd-tabs">
           <div class="jd-tab on" onclick="switchTab(this,'${{i}}-en')">📄 JD</div>
@@ -507,18 +582,20 @@ document.getElementById('hdr-filters').addEventListener('click', e => {{
   activeCategory = tag.dataset.cat;
   document.querySelectorAll('.ftag').forEach(t => t.classList.remove('on'));
   tag.classList.add('on');
+  refreshMarkers();
+  if (!document.getElementById('side').classList.contains('closed')) {{
+    renderJobs(currentJobs);
+  }}
+}});
 
-  LOCATIONS.forEach((loc, idx) => {{
-    const cnt = activeCategory === 'all'
-      ? loc.jobs.length
-      : loc.jobs.filter(j => j.label === activeCategory).length;
-    const el = document.getElementById('mk-' + idx);
-    if (el) {{
-      el.textContent = cnt;
-      el.style.opacity = cnt > 0 ? '1' : '0.25';
-    }}
-  }});
-
+// ── 日期过滤 ──────────────────────────────────────────────────────────────────
+document.getElementById('date-filters').addEventListener('click', e => {{
+  const tag = e.target.closest('.dtag');
+  if (!tag) return;
+  activeDays = parseInt(tag.dataset.days, 10);
+  document.querySelectorAll('.dtag').forEach(t => t.classList.remove('on'));
+  tag.classList.add('on');
+  refreshMarkers();
   if (!document.getElementById('side').classList.contains('closed')) {{
     renderJobs(currentJobs);
   }}
