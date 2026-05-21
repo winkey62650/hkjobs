@@ -1,7 +1,11 @@
 {
-  "buildCommand": "npm install",
-  "outputDirectory": ".",
-  "rewrites": [
-    { "source": "/api/tailor", "destination": "/api/tailor.js" }
+  "builds": [
+    { "src": "*.html",     "use": "@vercel/static" },
+    { "src": "api/*.js",   "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/tailor", "dest": "/api/tailor.js" },
+    { "src": "/(.*\\.html)", "dest": "/$1" },
+    { "src": "/",           "dest": "/index.html" }
   ]
 }
