@@ -5,10 +5,12 @@
     { "src": "version.json",         "use": "@vercel/static" },
     { "src": "sw.js",               "use": "@vercel/static" },
     { "src": "icons/**",            "use": "@vercel/static" },
-    { "src": "api/*.js",            "use": "@vercel/node" }
+    { "src": "api/*.js",            "use": "@vercel/node" },
+    { "src": "api/resume.py",       "use": "@vercel/python" }
   ],
   "routes": [
     { "src": "/api/tailor", "dest": "/api/tailor.js" },
+    { "src": "/api/resume", "dest": "/api/resume.py" },
     { "handle": "filesystem" },
     { "src": "/",           "dest": "/index.html" }
   ]

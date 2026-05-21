@@ -215,7 +215,7 @@ textarea{resize:vertical;min-height:58px}
     </div>
     <button class="hbtn btn-ai" onclick="openJD()">✨ JD匹配</button>
     <button class="hbtn btn-tpl" id="tpl-btn" onclick="toggleTpl()">🎨 传统版</button>
-    <button class="hbtn btn-pdf" onclick="window.print()">⬇ 导出PDF</button>
+    <button class="hbtn btn-pdf" id="pdf-btn" onclick="exportPDF()">⬇ 导出PDF</button>
     <a href="index.html" class="hbtn btn-back">← 地图</a>
   </div>
 </div>
@@ -753,6 +753,76 @@ function applyToResume(){
   const sec=document.getElementById('s-exp');
   sec.style.background='#dcfce7';
   setTimeout(()=>sec.style.background='',1500);
+}
+
+// ── 导出 PDF（调用 ReportLab 后端，生成专业一页 PDF）─────────────────────────
+function buildPdfPayload(){
+  const grabBullets=t=>String(t||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const nameEn=v('f-name-en'), nameZh=v('f-name-zh');
+  const particulars=[];
+  if(v('f-dob'))    particulars.push(['Date of Birth', v('f-dob')]);
+  if(v('f-gender')) particulars.push(['Gender', v('f-gender')]);
+  if(v('f-hkid'))   particulars.push(['HKID No.', v('f-hkid')+'(X)']);
+  const skills=[];
+  if(v('sk-lang')) skills.push(['Languages', v('sk-lang')]);
+  if(v('sk-it'))   skills.push(['IT Skills', v('sk-it')]);
+  if(v('sk-misc')) skills.push(['Other Skills', v('sk-misc')]);
+  return {
+    name: nameEn||nameZh,
+    nameZh: (nameEn&&nameZh) ? nameZh : '',
+    position: v('f-pos'),
+    contacts: [v('f-phone'),v('f-email'),v('f-addr'),v('f-linkedin')].filter(x=>x.trim()),
+    particulars,
+    objective: v('f-obj'),
+    education: [...document.querySelectorAll('#edu-list .entry')].map(en=>({
+      title:en.querySelector('.ed').value, org:en.querySelector('.es').value,
+      extra:en.querySelector('.eg').value, dates:en.querySelector('.ep').value,
+      bullets:grabBullets(en.querySelector('.et').value)
+    })).filter(x=>x.title||x.org),
+    awards: [...document.querySelectorAll('#award-list .entry')].map(en=>({
+      title:en.querySelector('.aw').value, dates:en.querySelector('.ao').value
+    })).filter(x=>x.title),
+    experience: [...document.querySelectorAll('#exp-list .entry')].map(en=>({
+      title:en.querySelector('.xp').value, org:en.querySelector('.xc').value,
+      dates:en.querySelector('.xd').value,
+      bullets:grabBullets(en.querySelector('.xb').value)
+    })).filter(x=>x.title||x.org),
+    skills,
+    extracurricular: [...document.querySelectorAll('#extra-list .entry')].map(en=>({
+      title:en.querySelector('.xtn').value, dates:en.querySelector('.xto').value,
+      desc:en.querySelector('.xtd').value
+    })).filter(x=>x.title),
+    footer: {salary:v('f-sal'), availability:v('f-avail')},
+    template: cvTemplate,
+    photo: photoDataUrl,
+  };
+}
+
+async function exportPDF(){
+  if(!v('f-name-en') && !v('f-name-zh')){ alert('请先填写姓名'); return; }
+  const btn=document.getElementById('pdf-btn');
+  const orig=btn.textContent;
+  btn.textContent='⏳ 生成中…';
+  btn.style.pointerEvents='none';
+  try{
+    const res=await fetch('/api/resume',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(buildPdfPayload())
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const blob=await res.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=(v('f-name-en')||v('f-name-zh')).replace(/[^\w一-龥-]+/g,'_')+'_CV.pdf';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }catch(err){
+    alert('PDF 生成失败：'+err.message+'\n\n可改用浏览器打印（Cmd/Ctrl + P）作为备用。');
+  }finally{
+    btn.textContent=orig;
+    btn.style.pointerEvents='';
+  }
 }
 
 // ── 初始化 ───────────────────────────────────────────────────────────────────
