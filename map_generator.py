@@ -308,6 +308,7 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
 .side{{width:390px;background:#fff;display:flex;flex-direction:column;
        border-left:1px solid #d1fae5;overflow:hidden;transition:width .25s;flex-shrink:0}}
 .side.closed{{width:0}}
+.sheet-handle{{display:none}}
 .side-hdr{{padding:13px 15px 9px;border-bottom:1px solid #d1fae5;flex-shrink:0;
            background:#f0fdf4}}
 .side-hdr h2{{font-size:.98rem;color:#15803d;font-weight:800}}
@@ -368,11 +369,11 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
 
 /* ── map marker ── */
 .mk-wrap{{position:relative;display:flex;flex-direction:column;align-items:center}}
-.mk-circle{{width:36px;height:36px;border-radius:50%;
+.mk-circle{{width:30px;height:30px;border-radius:50%;
             background:linear-gradient(135deg,#4ade80,#16a34a);
-            border:3px solid #fff;box-shadow:0 2px 8px rgba(22,163,74,.45);
+            border:2.5px solid #fff;box-shadow:0 2px 7px rgba(22,163,74,.45);
             display:flex;align-items:center;justify-content:center;
-            color:#fff;font-size:.72rem;font-weight:800;cursor:pointer;
+            color:#fff;font-size:.66rem;font-weight:800;cursor:pointer;
             transition:transform .15s}}
 .mk-circle:hover{{transform:scale(1.15)}}
 .mk-circle.active{{background:linear-gradient(135deg,#15803d,#14532d);transform:scale(1.22)}}
@@ -383,10 +384,36 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
 .empty{{padding:36px 20px;text-align:center;color:#94a3b8;font-size:.88rem}}
 
 @media(max-width:768px){{
-  .side{{position:absolute;right:0;top:0;bottom:0;z-index:500;width:320px;
-         box-shadow:-4px 0 16px rgba(0,0,0,.15)}}
-  .side.closed{{width:0}}
-  .cat-panel{{width:248px}}
+  /* 顶栏紧凑化 */
+  .hdr{{padding:7px 11px;gap:6px}}
+  .brand-logo{{width:26px;height:26px;font-size:.92rem;border-radius:8px}}
+  .hdr h1{{font-size:1.12rem;letter-spacing:1px}}
+  .brand .slogan{{display:none}}
+  .src-badges{{display:none}}
+  .hdr-info{{font-size:.7rem}}
+  .hdr-right{{width:100%;margin-left:0;gap:6px;flex-wrap:wrap}}
+  .date-filters .lbl{{display:none}}
+  .date-filters{{gap:5px;flex-shrink:0}}
+  .dtag{{padding:6px 11px;font-size:.75rem}}
+  .cat-btn{{padding:7px 12px;font-size:.79rem}}
+  .resume-btn{{padding:7px 12px;font-size:.77rem}}
+  .cat-panel{{width:min(300px,calc(100vw - 22px))}}
+
+  /* 地图标记缩小 */
+  .mk-circle{{width:26px;height:26px;font-size:.6rem;border-width:2px}}
+  .mk-label{{display:none}}
+
+  /* 侧边栏 → 底部抽屉 */
+  .side{{position:absolute;left:0;right:0;bottom:0;top:auto;z-index:600;
+         width:auto;height:76vh;
+         border-left:none;border-top:1px solid #d1fae5;
+         border-radius:20px 20px 0 0;
+         box-shadow:0 -8px 30px rgba(0,0,0,.22);
+         transform:translateY(0);transition:transform .28s ease}}
+  .side.closed{{width:auto;transform:translateY(101%)}}
+  .sheet-handle{{display:block;width:42px;height:4px;border-radius:3px;
+                 background:#cbd5e1;margin:8px auto 0;flex-shrink:0;cursor:pointer}}
+  .side-hdr{{padding:7px 15px 9px}}
 }}
 </style>
 </head>
@@ -401,7 +428,7 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
     </div>
     <div class="hdr-meta">
       <span class="hdr-info">共 <strong id="total-count">{total_located}</strong> 个职位 · 更新于 {update_str}</span>
-      {source_badge_html}
+      <span class="src-badges">{source_badge_html}</span>
     </div>
   </div>
 
@@ -430,6 +457,7 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
   <div id="map"></div>
 
   <div class="side closed" id="side">
+    <div class="sheet-handle" id="sheet-handle"></div>
     <div class="side-hdr">
       <span class="side-close" id="side-close">✕</span>
       <h2 id="side-title">选择地点</h2>
@@ -446,10 +474,11 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
 <script>
 const LOCATIONS = {js_data};
 
+const isMobile = window.matchMedia('(max-width:768px)').matches;
 const map = L.map('map', {{
   center: [22.3193, 114.1694],
-  zoom: 12,
-  zoomControl: true,
+  zoom: isMobile ? 11 : 12,
+  zoomControl: !isMobile,
 }});
 L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
   attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
@@ -536,6 +565,7 @@ function closeSidebar() {{
 }}
 
 document.getElementById('side-close').addEventListener('click', closeSidebar);
+document.getElementById('sheet-handle').addEventListener('click', closeSidebar);
 
 document.getElementById('side-q').addEventListener('input', e => {{
   const q = e.target.value.trim().toLowerCase();
