@@ -9,9 +9,10 @@
     { "src": "api/resume.py",       "use": "@vercel/python" }
   ],
   "routes": [
-    { "src": "/api/tailor",  "dest": "/api/tailor.js" },
-    { "src": "/api/account", "dest": "/api/account.js" },
-    { "src": "/api/resume",  "dest": "/api/resume.py" },
+    { "src": "/api/tailor",    "dest": "/api/tailor.js" },
+    { "src": "/api/account",   "dest": "/api/account.js" },
+    { "src": "/api/interview", "dest": "/api/interview.js" },
+    { "src": "/api/resume",    "dest": "/api/resume.py" },
     { "handle": "filesystem" },
     { "src": "/",           "dest": "/index.html" }
   ]

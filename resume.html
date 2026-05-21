@@ -223,6 +223,38 @@ textarea{resize:vertical;min-height:58px}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prof-row .tag{font-size:.68rem;font-weight:700;color:#16a34a;flex-shrink:0}
 
+/* ── AI 访谈面板 ── */
+.iv-panel{position:fixed;top:0;right:0;bottom:0;width:440px;max-width:94vw;
+  background:#f0fdf4;z-index:2000;box-shadow:-4px 0 24px rgba(0,0,0,.2);
+  display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s}
+.iv-panel.open{transform:translateX(0)}
+.iv-hd{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;padding:13px 16px;
+  display:flex;align-items:center;gap:8px;font-size:1rem;font-weight:800;flex-shrink:0}
+.iv-hd .sub{font-size:.72rem;font-weight:600;opacity:.85}
+.iv-hd button{margin-left:auto;background:none;border:none;color:#fff;
+  font-size:1.3rem;cursor:pointer;line-height:1}
+.iv-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.iv-msg{max-width:86%;padding:9px 12px;border-radius:13px;font-size:.85rem;
+  line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.iv-msg.ai{background:#fff;border:1px solid #d1fae5;align-self:flex-start;
+  border-bottom-left-radius:3px;color:#1e293b}
+.iv-msg.me{background:linear-gradient(135deg,#4ade80,#16a34a);color:#fff;
+  align-self:flex-end;border-bottom-right-radius:3px}
+.iv-msg.typing{color:#94a3b8;font-style:italic;background:#fff;border:1px solid #d1fae5;
+  align-self:flex-start}
+.iv-foot{flex-shrink:0;border-top:1px solid #d1fae5;background:#fff;padding:10px}
+.iv-extract-btn{width:100%;padding:9px;margin-bottom:8px;background:#0d9488;color:#fff;
+  border:none;border-radius:8px;font-size:.83rem;font-weight:800;cursor:pointer}
+.iv-extract-btn:hover{background:#0f766e}
+.iv-extract-btn:disabled{filter:grayscale(.5);cursor:not-allowed}
+.iv-input{display:flex;gap:7px}
+.iv-input textarea{flex:1;padding:9px 10px;border:1.5px solid #d1fae5;border-radius:8px;
+  font-size:.85rem;font-family:inherit;resize:none;height:48px;outline:none}
+.iv-input textarea:focus{border-color:#22c55e}
+.iv-send{padding:0 17px;background:linear-gradient(135deg,#4ade80,#16a34a);color:#fff;
+  border:none;border-radius:8px;font-size:.85rem;font-weight:800;cursor:pointer}
+.iv-send:disabled{filter:grayscale(.5);cursor:not-allowed}
+
 @media print{
   body{background:#fff;overflow:visible;height:auto;display:block}
   .hdr,.fp,.overlay,.jd-panel{display:none!important}
@@ -249,6 +281,7 @@ textarea{resize:vertical;min-height:58px}
       <button class="vt-btn on" data-rv="edit">✏️ 编辑</button>
       <button class="vt-btn" data-rv="preview">👁 预览</button>
     </div>
+    <button class="hbtn btn-ai" onclick="openIV()">🎤 AI访谈</button>
     <button class="hbtn btn-ai" onclick="openJD()">✨ JD匹配</button>
     <button class="hbtn btn-tpl" id="tpl-btn" onclick="toggleTpl()">🎨 传统版</button>
     <button class="hbtn btn-pdf" id="pdf-btn" onclick="exportPDF()">⬇ 导出PDF</button>
@@ -428,6 +461,20 @@ textarea{resize:vertical;min-height:58px}
     <div class="modal-hd"><span id="acct-modal-title">账号</span>
       <span class="x" onclick="closeAcct()">✕</span></div>
     <div class="modal-bd" id="acct-modal-bd"></div>
+  </div>
+</div>
+
+<div class="overlay" id="iv-overlay" onclick="closeIV()"></div>
+<div class="iv-panel" id="iv-panel">
+  <div class="iv-hd">🎤 AI 访谈<span class="sub" id="iv-sub"></span>
+    <button onclick="closeIV()">✕</button></div>
+  <div class="iv-msgs" id="iv-msgs"></div>
+  <div class="iv-foot">
+    <button class="iv-extract-btn" onclick="ivExtract(this)">✅ 整理成简历（学校 / 工作 / 项目）</button>
+    <div class="iv-input">
+      <textarea id="iv-text" placeholder="回答 AI 的问题…（Enter 发送，Shift+Enter 换行）"></textarea>
+      <button class="iv-send" id="iv-send" onclick="ivSend()">发送</button>
+    </div>
   </div>
 </div>
 
@@ -1087,6 +1134,102 @@ function seedDefaults(){
           det:'Major: English Language & Literature\nRelevant modules: Academic Writing, Linguistics'});
   updateTplBtn();
 }
+
+// ── AI 访谈 ──────────────────────────────────────────────────────────────────
+let ivMessages = [], ivBusy = false, ivElapsed = 0, ivTimer = null;
+
+function openIV(){
+  document.getElementById('iv-sub').textContent = acct ? '· '+profileName(activeIdx) : '';
+  document.getElementById('iv-panel').classList.add('open');
+  document.getElementById('iv-overlay').classList.add('open');
+  if(!ivMessages.length && !ivBusy) ivAsk();
+  else ivRender();
+}
+function closeIV(){
+  document.getElementById('iv-panel').classList.remove('open');
+  document.getElementById('iv-overlay').classList.remove('open');
+}
+function ivRender(){
+  const box=document.getElementById('iv-msgs');
+  let html=ivMessages.map(m=>
+    '<div class="iv-msg '+(m.role==='user'?'me':'ai')+'">'+e(m.content)+'</div>').join('');
+  if(ivBusy) html+='<div class="iv-msg typing">AI 思考中… '+ivElapsed+'s（推理模型较慢，请稍候）</div>';
+  box.innerHTML=html;
+  box.scrollTop=box.scrollHeight;
+}
+async function ivAsk(){
+  ivBusy=true; ivElapsed=0; ivRender();
+  ivTimer=setInterval(()=>{ ivElapsed++; ivRender(); },1000);
+  try{
+    const r=await fetch('/api/interview',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({mode:'chat',messages:ivMessages})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error||('HTTP '+r.status));
+    ivMessages.push({role:'assistant',content:d.reply||'（无回复）'});
+  }catch(err){
+    ivMessages.push({role:'assistant',content:'（连接出错：'+err.message+'，可关闭后重开访谈）'});
+  }finally{
+    clearInterval(ivTimer); ivBusy=false; ivRender();
+  }
+}
+async function ivSend(){
+  if(ivBusy) return;
+  const ta=document.getElementById('iv-text');
+  const txt=ta.value.trim();
+  if(!txt) return;
+  ta.value='';
+  ivMessages.push({role:'user',content:txt});
+  ivRender();
+  await ivAsk();
+}
+async function ivExtract(btn){
+  if(ivBusy){ alert('AI 还在回复，请稍等'); return; }
+  if(ivMessages.filter(m=>m.role==='user').length<1){
+    alert('先和 AI 聊几句你的经历，再整理成简历'); return;
+  }
+  const orig=btn.textContent;
+  btn.textContent='⏳ 整理中（约 1 分钟）…'; btn.disabled=true;
+  try{
+    const r=await fetch('/api/interview',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({mode:'extract',messages:ivMessages})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error||('HTTP '+r.status));
+    applyInterview(d);
+    ivMessages.push({role:'assistant',content:'✅ 已整理进左侧简历表单 —— 学校 '
+      +(d.education||[]).length+' 项、工作 '+(d.experience||[]).length+' 项、项目 '
+      +(d.projects||[]).length+' 项。检查调整后即可导出 PDF。'});
+    ivRender();
+  }catch(err){
+    alert('整理失败：'+err.message);
+  }finally{
+    btn.textContent=orig; btn.disabled=false;
+  }
+}
+function applyInterview(d){
+  if((d.education||[]).length){
+    document.getElementById('edu-list').innerHTML='';
+    d.education.forEach(ed=>addEdu({deg:ed.degree||'',sch:ed.school||'',
+      per:ed.period||'',gpa:'',det:ed.detail||''}));
+  }
+  const exps=(d.experience||[]).map(x=>({pos:x.position||'',co:x.company||'',
+    dt:x.period||'',bul:(x.bullets||[]).join('\n')}));
+  (d.projects||[]).forEach(p=>exps.push({pos:p.name||'Project',
+    co:p.context||'Project',dt:'',bul:(p.bullets||[]).join('\n')}));
+  if(exps.length){
+    document.getElementById('exp-list').innerHTML='';
+    exps.forEach(addExp);
+  }
+  if(d.skills){
+    const cur=v('sk-misc').trim();
+    document.getElementById('sk-misc').value=cur?cur+', '+d.skills:d.skills;
+  }
+  render();
+}
+document.getElementById('iv-text').addEventListener('keydown',ev=>{
+  if(ev.key==='Enter'&&!ev.shiftKey){ ev.preventDefault(); ivSend(); }
+});
 
 // ── 初始化 ───────────────────────────────────────────────────────────────────
 window.addEventListener('load', async ()=>{
