@@ -336,7 +336,7 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
 .vt-btn.on{{background:linear-gradient(135deg,#4ade80,#16a34a);color:#fff}}
 
 /* ── main layout ── */
-.main{{display:flex;flex:1;overflow:hidden}}
+.main{{display:flex;flex:1;overflow:hidden;position:relative}}
 #map{{flex:1;z-index:1}}
 
 /* ── 列表视图 ── */
@@ -485,16 +485,14 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
   .mk-circle{{width:26px;height:26px;font-size:.6rem;border-width:2px}}
   .mk-label{{display:none}}
 
-  /* 侧边栏 → 底部抽屉 */
-  .side{{position:absolute;left:0;right:0;bottom:0;top:auto;z-index:600;
-         width:auto;height:76vh;
-         border-left:none;border-top:1px solid #d1fae5;
-         border-radius:20px 20px 0 0;
-         box-shadow:0 -8px 30px rgba(0,0,0,.22);
+  /* 职位面板 → 填满页头以下整块区域，关闭按钮永远在页头正下方 */
+  .side{{position:absolute;top:0;right:0;bottom:0;left:0;z-index:600;
+         width:auto;height:auto;border-left:none;border-radius:0;
+         box-shadow:0 -6px 24px rgba(0,0,0,.18);
          transform:translateY(0);transition:transform .28s ease}}
-  .side.closed{{width:auto;transform:translateY(101%)}}
+  .side.closed{{width:auto;transform:translateY(100%)}}
   .sheet-handle{{display:block;width:46px;height:5px;border-radius:3px;
-                 background:#86efac;margin:9px auto 2px;flex-shrink:0;cursor:pointer}}
+                 background:#86efac;margin:7px auto 0;flex-shrink:0;cursor:pointer}}
   .side-hdr{{padding:6px 14px 10px}}
   .side-close{{width:40px;height:40px;line-height:40px;font-size:1.3rem;
                background:#dcfce7;color:#15803d}}
