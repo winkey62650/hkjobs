@@ -6,7 +6,7 @@ HK Jobs 地图生成器 — Multi-platform edition
 
 import json, re, sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 
 DATA_FILE   = Path(__file__).parent / "data" / "jobs.json"
 OUTPUT_FILE = Path(__file__).parent / "index.html"
@@ -202,18 +202,22 @@ for name, grp in loc_groups.items():
 
 js_data = json.dumps(js_locations, ensure_ascii=False)
 
-# scrape timestamp
+# 更新时间（转香港时间 UTC+8）
 try:
     latest_ts = max((j.get("scraped_at","") for j in data), default="")
     if latest_ts:
-        dt = datetime.strptime(latest_ts, "%Y-%m-%dT%H:%M:%SZ")
-        update_str = dt.strftime("%Y-%m-%d %H:%M UTC")
+        dt = datetime.strptime(latest_ts, "%Y-%m-%dT%H:%M:%SZ") + timedelta(hours=8)
+        update_str = dt.strftime("%Y-%m-%d %H:%M")
     else:
         update_str = "—"
 except Exception:
     update_str = "—"
 
-gen_date = datetime.utcnow().date().isoformat()
+# 香港当前日期 + 昨日新增岗位统计
+hkt_now   = datetime.utcnow() + timedelta(hours=8)
+gen_date  = hkt_now.date().isoformat()
+yesterday = (hkt_now.date() - timedelta(days=1)).isoformat()
+new_yesterday = sum(1 for j in data if j.get("first_seen") == yesterday)
 total_located = sum(len(g["jobs"]) for g in loc_groups.values())
 source_badge_html = " ".join(
     f'<span style="background:{SOURCE_COLORS.get(s,"#888")};color:#fff;'
@@ -455,10 +459,10 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
     <div class="brand">
       <div class="brand-logo">⚡</div>
       <h1>秒投</h1>
-      <span class="slogan">香港求职地图 · 一键速投</span>
+      <span class="slogan">你的一键求职搭子</span>
     </div>
     <div class="hdr-meta">
-      <span class="hdr-info">共 <strong id="total-count">{total_located}</strong> 个职位 · 更新于 {update_str}</span>
+      <span class="hdr-info">共 <strong id="total-count">{total_located}</strong> 个职位 · 昨日新增 <strong>{new_yesterday}</strong> · 更新于 {update_str} HKT</span>
       <span class="src-badges">{source_badge_html}</span>
     </div>
   </div>
@@ -558,6 +562,13 @@ function ageLabel(j) {{
   if (a === 1) return '昨天';
   return a + '天前';
 }}
+// 薪资排序：有薪资的按高→低，"面议"(无薪资)统一排最后
+function salCmp(a, b) {{
+  if (a.sal_num && b.sal_num) return b.sal_num - a.sal_num;
+  if (a.sal_num) return -1;
+  if (b.sal_num) return 1;
+  return jobAgeDays(a) - jobAgeDays(b);
+}}
 
 // ── 标记 ──────────────────────────────────────────────────────────────────────
 const markers = [];
@@ -630,11 +641,7 @@ document.getElementById('sort-btn').addEventListener('click', () => {{
 function renderJobs(jobs) {{
   let filtered = jobs.filter(j => catOk(j) && dateOk(j));
 
-  if (sortBySalary) {{
-    filtered.sort((a, b) => b.sal_num - a.sal_num);
-  }} else {{
-    filtered.sort((a, b) => jobAgeDays(a) - jobAgeDays(b));
-  }}
+  filtered.sort(sortBySalary ? salCmp : (a, b) => jobAgeDays(a) - jobAgeDays(b));
 
   const dLabel = activeDays === 0 ? '全部' : `近${{activeDays}}天`;
   document.getElementById('side-sub').textContent =
@@ -732,9 +739,7 @@ function getListJobs() {{
   const q = document.getElementById('list-q').value.trim().toLowerCase();
   if (q) arr = arr.filter(j => (j.title + j.company + j.snippet).toLowerCase().includes(q));
   arr = arr.slice();
-  arr.sort(sortBySalary
-    ? (a, b) => b.sal_num - a.sal_num
-    : (a, b) => jobAgeDays(a) - jobAgeDays(b));
+  arr.sort(sortBySalary ? salCmp : (a, b) => jobAgeDays(a) - jobAgeDays(b));
   return arr;
 }}
 function renderList(resetLimit) {{

@@ -1,15 +1,20 @@
-name: Daily HK Jobs Scrape
+name: Hourly HK Jobs Scrape
 
 on:
   schedule:
-    # 每天 UTC 01:00 = 香港时间 09:00
-    - cron: "0 1 * * *"
+    # 每小时整点运行一次
+    - cron: "0 * * * *"
   workflow_dispatch:   # 允许手动触发
+
+# 同一时间只跑一个，避免两次抓取并发推送冲突
+concurrency:
+  group: hkjobs-scrape
+  cancel-in-progress: false
 
 jobs:
   scrape-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 50
 
     steps:
       - name: Checkout repo
@@ -44,7 +49,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/jobs.json index.html
           # Only commit if there are changes
-          git diff --cached --quiet || git commit -m "chore: daily job data update $(date -u +%Y-%m-%d)"
+          git diff --cached --quiet || git commit -m "chore: job data update $(TZ='Asia/Hong_Kong' date +'%Y-%m-%d %H:%M') HKT"
 
       - name: Push changes
         uses: ad-m/github-push-action@v0.8.0

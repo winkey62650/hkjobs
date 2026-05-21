@@ -1,7 +1,7 @@
 {
   "name": "秒投 · 香港求职地图",
   "short_name": "秒投",
-  "description": "香港多平台职位聚合 — 地图找工作，一键速投",
+  "description": "秒投 — 你的一键求职搭子，香港多平台职位聚合地图",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

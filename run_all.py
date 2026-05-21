@@ -10,7 +10,9 @@ Multi-platform HK Job Scraper — orchestrator
 """
 import asyncio, json, sys, importlib, traceback
 from pathlib import Path
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, timedelta, date
+
+HKT = timezone(timedelta(hours=8))   # 香港时间 UTC+8
 
 ROOT      = Path(__file__).parent
 sys.path.insert(0, str(ROOT))
@@ -57,7 +59,7 @@ async def safe_run(name, run_func):
 
 async def main():
     DATA_DIR.mkdir(exist_ok=True)
-    today    = datetime.now(timezone.utc).date()
+    today    = datetime.now(HKT).date()                # 香港日期
     today_s  = today.isoformat()
     ts       = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
