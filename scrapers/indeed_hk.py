@@ -71,8 +71,22 @@ async def scrape_page(page, query, start):
             j["snippet"] = ""
 
         # 发布时间
-        date = await card.query_selector('[data-testid="myJobsStateDate"], .date')
-        j["posted"] = (await date.inner_text()).strip() if date else ""
+        date = await card.query_selector(
+            '[data-testid="myJobsStateDate"], [class*="myJobsState"], .date')
+        posted = (await date.inner_text()).strip() if date else ""
+        if not posted:
+            # 兜底：扫描卡片里像「日期」的文字
+            for el in await card.query_selector_all("span, div"):
+                try:
+                    t = (await el.inner_text()).strip()
+                except Exception:
+                    continue
+                low = t.lower()
+                if t and len(t) < 40 and any(w in low for w in
+                        ("ago", "posted", "today", "active", "just")):
+                    posted = t
+                    break
+        j["posted"] = posted
 
         j["source"] = SOURCE
         jobs.append(j)

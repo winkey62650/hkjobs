@@ -77,8 +77,12 @@ async def scrape_listing(page):
             job_id = href.split("jobid=")[1].split("&")[0]
         url = DETAIL_BASE.format(job_id)
 
-        # posted: raw closing date if given, else posting date.
-        posted = closing_date if closing_date else posting_date
+        # posted 必须是「刊登日期」，不能用截止日期（那不是发布日）。
+        # 截止日期并入描述，作为求职者参考的「截止」信息。
+        posted = posting_date
+        snippet = vals[4]  # academic requirement
+        if closing_date and "year round" not in closing_date.lower():
+            snippet = (snippet + "  ·  截止 " + closing_date).strip()
 
         jobs.append({
             "title": title,
@@ -86,7 +90,7 @@ async def scrape_listing(page):
             "company": department or DEFAULT_COMPANY,
             "location": "Hong Kong",
             "salary": salary,
-            "snippet": vals[4],  # academic requirement
+            "snippet": snippet,
             "posted": posted,
             "source": SOURCE,
             "label": classify(title),

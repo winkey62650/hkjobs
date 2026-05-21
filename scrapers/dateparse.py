@@ -33,8 +33,8 @@ def parse_posted(raw: str, anchor: date = None):
     if any(w in s for w in today_words):
         return anchor
 
-    # ── 「小时 / 分钟前」→ 仍算今天 ───────────────────────────────────────────
-    if re.search(r"\d+\s*(hour|hr|minute|min|小时|小時|分鐘|分钟)", s):
+    # ── 「小时 / 分钟前」→ 仍算今天（含 "1h ago" / "8h" 紧凑写法）──────────────
+    if re.search(r"\d+\s*(?:(?:hours?|hrs?|h|minutes?|mins?)\b|小时|小時|分鐘|分钟)", s):
         return anchor
 
     # ── 「昨天 / yesterday」→ anchor-1 ───────────────────────────────────────

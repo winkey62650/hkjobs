@@ -531,10 +531,10 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
     </div>
     <div class="date-filters" id="date-filters">
       <span class="lbl">📅 发布</span>
-      <span class="dtag" data-days="3">近3天</span>
-      <span class="dtag" data-days="5">近5天</span>
-      <span class="dtag on" data-days="7">近7天</span>
-      <span class="dtag" data-days="0">全部</span>
+      <span class="dtag" data-mode="today">今日</span>
+      <span class="dtag" data-mode="yesterday">昨日</span>
+      <span class="dtag on" data-mode="3days">近三天</span>
+      <span class="dtag" data-mode="all">全部</span>
     </div>
     <a href="resume.html" class="resume-btn">📄 生成简历</a>
   </div>
@@ -595,7 +595,7 @@ let activeCategory = 'all';
 let activeMarkerEl = null;
 let currentJobs    = [];
 let sortBySalary   = false;
-let activeDays     = 7;   // 默认只看近7天
+let activeDateMode = '3days';   // today / yesterday / 3days / all
 let showOnlyNew    = false;
 
 const TODAY     = new Date("{gen_date}T00:00:00Z");
@@ -609,7 +609,14 @@ function jobAgeDays(j) {{
   return Math.floor((TODAY - d) / 86400000);
 }}
 function dateOk(j) {{
-  return activeDays === 0 || jobAgeDays(j) <= activeDays;
+  if (activeDateMode === 'all') return true;
+  const a = jobAgeDays(j);
+  if (activeDateMode === 'today')     return a <= 0;
+  if (activeDateMode === 'yesterday') return a === 1;
+  return a <= 3;   // 近三天
+}}
+function dateModeLabel() {{
+  return ({{today:'今日', yesterday:'昨日', '3days':'近三天', all:'全部'}})[activeDateMode];
 }}
 function catOk(j) {{
   return activeCategory === 'all' || j.label === activeCategory;
@@ -704,9 +711,8 @@ function renderJobs(jobs) {{
 
   filtered.sort(sortBySalary ? salCmp : (a, b) => jobAgeDays(a) - jobAgeDays(b));
 
-  const dLabel = activeDays === 0 ? '全部' : `近${{activeDays}}天`;
   document.getElementById('side-sub').textContent =
-    `${{filtered.length}} 个职位 · ${{dLabel}}` +
+    `${{filtered.length}} 个职位 · ${{dateModeLabel()}}` +
     (activeCategory !== 'all' ? `（${{activeCategory}}）` : '');
 
   const list = document.getElementById('job-list');
@@ -784,7 +790,7 @@ document.getElementById('cat-panel').addEventListener('click', e => {{
 document.getElementById('date-filters').addEventListener('click', e => {{
   const tag = e.target.closest('.dtag');
   if (!tag) return;
-  activeDays = parseInt(tag.dataset.days, 10);
+  activeDateMode = tag.dataset.mode;
   document.querySelectorAll('.dtag').forEach(t => t.classList.remove('on'));
   tag.classList.add('on');
   refreshMarkers();
@@ -808,11 +814,10 @@ function getListJobs() {{
 function renderList(resetLimit) {{
   if (resetLimit !== false) listLimit = 80;
   const arr = getListJobs();
-  const dLabel = activeDays === 0 ? '全部时间' : `近${{activeDays}}天`;
   const newChip = showOnlyNew
     ? '<span class="new-chip" id="new-chip">🆕 仅看新增 ✕</span>' : '';
   document.getElementById('list-count').innerHTML = newChip +
-    `共 <strong>${{arr.length}}</strong> 个职位 · ${{dLabel}}` +
+    `共 <strong>${{arr.length}}</strong> 个职位 · ${{dateModeLabel()}}` +
     (activeCategory !== 'all' ? ` · ${{activeCategory}}` : '');
   const body = document.getElementById('list-body');
   if (!arr.length) {{

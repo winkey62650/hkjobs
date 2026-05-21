@@ -47,6 +47,7 @@ For each experience entry, rewrite or generate 3–5 bullet points that:
 
 Also generate:
 - A tailored OBJECTIVE paragraph (2–3 sentences) that directly responds to this specific JD
+- A SKILLS line: 6–8 comma-separated skills the candidate should highlight, drawn from the JD requirements and matched to the candidate's background (mix of hard and soft skills)
 - 5 key keywords extracted from the JD
 
 OUTPUT FORMAT — respond only with valid JSON, no markdown fences:
@@ -55,6 +56,7 @@ OUTPUT FORMAT — respond only with valid JSON, no markdown fences:
   "experiences": [
     { "index": 0, "bullets": ["bullet 1", "bullet 2", "bullet 3"] }
   ],
+  "skills": "skill1, skill2, skill3, skill4, skill5, skill6",
   "keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"]
 }`;
 
@@ -91,6 +93,7 @@ OUTPUT FORMAT — respond only with valid JSON, no markdown fences:
       const truncated = cleaned.slice(start);
       // 构造最小可用结构
       const objMatch = truncated.match(/"objective"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      const skMatch  = truncated.match(/"skills"\s*:\s*"((?:[^"\\]|\\.)*)"/);
       const kwMatch  = truncated.match(/"keywords"\s*:\s*\[([^\]]*)\]/);
       const bullets  = [];
       const bulMatch = truncated.matchAll(/"bullets"\s*:\s*\[([^\]]*)\]/g);
@@ -101,6 +104,7 @@ OUTPUT FORMAT — respond only with valid JSON, no markdown fences:
       result = {
         objective: objMatch ? objMatch[1] : "",
         experiences: bullets,
+        skills: skMatch ? skMatch[1] : "",
         keywords: kwMatch ? kwMatch[1].match(/"([^"]*)"/g)?.map(s => s.replace(/^"|"$/g,"")) || [] : [],
       };
     }
