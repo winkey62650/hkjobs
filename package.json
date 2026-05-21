@@ -1,0 +1,7 @@
+{
+  "name": "hkjobs",
+  "version": "1.0.0",
+  "dependencies": {
+    "openai": "^6.38.0"
+  }
+}

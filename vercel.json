@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/api/tailor", "destination": "/api/tailor.js" }
+  ]
+}

@@ -1,0 +1,53 @@
+name: Daily HK Jobs Scrape
+
+on:
+  schedule:
+    # 每天 UTC 01:00 = 香港时间 09:00
+    - cron: "0 1 * * *"
+  workflow_dispatch:   # 允许手动触发
+
+jobs:
+  scrape-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Python deps
+        run: |
+          pip install playwright
+          playwright install chromium --with-deps
+
+      - name: Run scrapers
+        run: python run_all.py 2
+        # max_pages=2 per keyword per source (~600-900 jobs total)
+
+      - name: Generate map HTML
+        run: python map_generator.py
+
+      - name: Copy resume.html (static asset)
+        run: |
+          # resume.html is checked into the repo root; nothing to copy
+          echo "resume.html already in repo root"
+
+      - name: Commit updated data + map
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/jobs.json index.html
+          # Only commit if there are changes
+          git diff --cached --quiet || git commit -m "chore: daily job data update $(date -u +%Y-%m-%d)"
+
+      - name: Push changes
+        uses: ad-m/github-push-action@v0.8.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: main

@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>简历生成器 — Hong Kong Professional CV</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+     background:#f1f5f9;color:#1e293b;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── header ── */
+.hdr{background:linear-gradient(135deg,#e60028,#900018);color:#fff;
+     padding:11px 24px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.hdr h1{font-size:1.05rem;white-space:nowrap}
+.hdr-sub{font-size:.78rem;opacity:.8;margin-top:1px}
+.hdr-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.hbtn{padding:6px 14px;border-radius:6px;font-size:.8rem;font-weight:600;
+      cursor:pointer;border:none;transition:.15s;text-decoration:none;display:inline-block}
+.btn-back{background:rgba(255,255,255,.2);color:#fff}
+.btn-back:hover{background:rgba(255,255,255,.3)}
+.btn-pdf{background:#fff;color:#e60028}
+.btn-pdf:hover{background:#f8fafc}
+.btn-tip{background:rgba(255,200,0,.25);color:#fde68a;border:1px solid rgba(255,200,0,.4);
+         font-size:.74rem;cursor:default}
+.btn-ai{background:#7c3aed;color:#fff}
+.btn-ai:hover{background:#6d28d9}
+.btn-ai:disabled{background:#a78bfa;cursor:not-allowed}
+
+/* ── JD Panel ── */
+.jd-panel{position:fixed;top:0;right:0;bottom:0;width:420px;background:#fff;
+           z-index:2000;box-shadow:-4px 0 24px rgba(0,0,0,.18);
+           display:flex;flex-direction:column;transform:translateX(100%);
+           transition:transform .25s}
+.jd-panel.open{transform:translateX(0)}
+.jdp-hdr{background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;
+          padding:14px 18px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.jdp-hdr h2{font-size:1rem;flex:1}
+.jdp-close{background:none;border:none;color:rgba(255,255,255,.7);font-size:1.3rem;
+           cursor:pointer;padding:0;line-height:1}
+.jdp-close:hover{color:#fff}
+.jdp-body{flex:1;overflow-y:auto;padding:16px}
+.jdp-body textarea{width:100%;height:180px;padding:9px;border:1px solid #e2e8f0;
+  border-radius:6px;font-size:.81rem;font-family:inherit;resize:vertical;outline:none}
+.jdp-body textarea:focus{border-color:#7c3aed}
+.jdp-section{margin-bottom:16px}
+.jdp-section h3{font-size:.78rem;font-weight:700;color:#4c1d95;text-transform:uppercase;
+                letter-spacing:.5px;margin-bottom:6px}
+.ai-btn{width:100%;padding:10px;background:#7c3aed;color:#fff;border:none;
+        border-radius:7px;font-size:.88rem;font-weight:700;cursor:pointer;
+        transition:.15s;display:flex;align-items:center;justify-content:center;gap:8px}
+.ai-btn:hover{background:#6d28d9}
+.ai-btn:disabled{background:#a78bfa;cursor:not-allowed}
+.ai-status{padding:10px 12px;border-radius:6px;font-size:.8rem;margin-top:10px;display:none}
+.ai-status.loading{background:#f5f3ff;color:#5b21b6;display:block}
+.ai-status.ok{background:#f0fdf4;color:#166534;display:block}
+.ai-status.err{background:#fef2f2;color:#991b1b;display:block}
+.kw-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.kw-tag{padding:3px 9px;border-radius:12px;background:#ede9fe;color:#5b21b6;
+        font-size:.75rem;font-weight:600}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:1999;
+          display:none;cursor:pointer}
+.overlay.open{display:block}
+
+/* ── layout ── */
+.main{display:flex;flex:1;overflow:hidden}
+
+/* ── form ── */
+.fp{width:390px;background:#fff;overflow-y:auto;border-right:1px solid #e2e8f0;flex-shrink:0}
+.fp-note{padding:10px 16px;background:#fffbeb;border-bottom:1px solid #fde68a;
+         font-size:.75rem;color:#92400e;line-height:1.5}
+.fp-note strong{color:#b45309}
+.sec{border-bottom:1px solid #f1f5f9}
+.sh{padding:11px 16px 8px;font-size:.77rem;font-weight:700;color:#e60028;
+    text-transform:uppercase;letter-spacing:.5px;cursor:pointer;
+    display:flex;justify-content:space-between;align-items:center;
+    user-select:none;background:#fff}
+.sh:hover{background:#fff5f5}
+.sa{font-size:.68rem;transition:transform .2s;color:#94a3b8}
+.sb{padding:4px 16px 13px;display:flex;flex-direction:column;gap:7px}
+.sb.col{display:none}
+
+label{font-size:.73rem;font-weight:600;color:#475569;display:block;margin-bottom:2px}
+input,textarea,select{width:100%;padding:6px 9px;border:1px solid #cbd5e1;border-radius:5px;
+  font-size:.81rem;outline:none;font-family:inherit;background:#fff;
+  color:#1e293b;transition:border .12s}
+input:focus,textarea:focus,select:focus{border-color:#e60028}
+textarea{resize:vertical;min-height:58px}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.hint{font-size:.69rem;color:#94a3b8;margin-top:2px;line-height:1.4}
+.add-btn{display:flex;align-items:center;gap:4px;padding:5px 8px;
+         background:#f1f5f9;border:1px dashed #cbd5e1;border-radius:5px;
+         font-size:.76rem;color:#64748b;cursor:pointer;width:100%;justify-content:center;
+         transition:.15s;margin-top:3px}
+.add-btn:hover{background:#e0f2fe;border-color:#0ea5e9;color:#0369a1}
+.entry{background:#f8fafc;border-radius:6px;padding:9px 9px 9px;
+       border:1px solid #e2e8f0;display:flex;flex-direction:column;gap:6px;position:relative}
+.del{position:absolute;top:7px;right:7px;background:none;border:none;
+     color:#cbd5e1;cursor:pointer;font-size:.88rem}
+.del:hover{color:#e60028}
+.photo-preview{width:80px;height:96px;border:2px dashed #cbd5e1;border-radius:4px;
+               display:flex;align-items:center;justify-content:center;
+               font-size:.7rem;color:#94a3b8;text-align:center;cursor:pointer;
+               overflow:hidden;flex-shrink:0}
+.photo-preview img{width:100%;height:100%;object-fit:cover}
+.photo-row{display:flex;gap:12px;align-items:flex-start}
+.photo-fields{flex:1;display:flex;flex-direction:column;gap:7px}
+
+/* ── preview ── */
+.pv{flex:1;overflow-y:auto;background:#d1d5db;display:flex;justify-content:center;padding:20px}
+
+/* ── CV (A4 proportions) ── */
+.cv{width:210mm;min-height:297mm;background:#fff;
+    box-shadow:0 4px 24px rgba(0,0,0,.2);
+    padding:14mm 16mm 14mm;
+    font-family:"Times New Roman",Times,Georgia,serif;
+    color:#000;font-size:10pt;line-height:1.5;position:relative}
+
+/* CV内部 */
+.cv-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8pt;border-bottom:2px solid #000;padding-bottom:7pt}
+.cv-name-block{}
+.cv-name{font-size:18pt;font-weight:700;letter-spacing:.5px;line-height:1.2}
+.cv-name-zh{font-size:11pt;color:#333;margin-top:2px}
+.cv-contacts{margin-top:6pt;font-size:8.5pt;color:#222;line-height:1.8}
+.cv-contacts div{display:flex;align-items:baseline;gap:6pt}
+.cv-contacts .lbl{min-width:52pt;font-weight:700;font-size:8pt;text-transform:uppercase;letter-spacing:.3px}
+.cv-photo{width:70pt;height:84pt;border:1px solid #ccc;object-fit:cover;flex-shrink:0;margin-left:12pt}
+.cv-photo-placeholder{width:70pt;height:84pt;border:1.5px dashed #ccc;
+  display:flex;align-items:center;justify-content:center;font-size:7pt;
+  color:#999;text-align:center;margin-left:12pt;flex-shrink:0}
+
+.cv-section{margin-bottom:10pt}
+.cv-section h2{font-size:9.5pt;font-weight:700;text-transform:uppercase;
+               letter-spacing:1pt;color:#000;border-bottom:1.5px solid #000;
+               padding-bottom:1.5pt;margin-bottom:6pt}
+.cv-row{display:flex;justify-content:space-between;align-items:baseline;gap:8pt;margin-bottom:1pt}
+.cv-row .title{font-weight:700;font-size:10pt}
+.cv-row .date{font-size:8.5pt;color:#333;white-space:nowrap;flex-shrink:0}
+.cv-sub{font-size:9pt;color:#333;margin-bottom:2pt}
+.cv-desc{font-size:9pt;color:#111;line-height:1.6}
+.cv-desc ul{padding-left:12pt;margin-top:2pt}
+.cv-desc li{margin-bottom:1.5pt}
+.cv-item{margin-bottom:8pt}
+.cv-item:last-child{margin-bottom:0}
+
+.cv-partrow{display:flex;gap:16pt;font-size:9pt;margin-bottom:2pt}
+.cv-partrow .pk{font-weight:700;min-width:80pt}
+
+.cv-skills-tbl{width:100%;font-size:9pt;border-collapse:collapse}
+.cv-skills-tbl td{padding:2pt 6pt 2pt 0;vertical-align:top}
+.cv-skills-tbl td:first-child{font-weight:700;width:90pt;white-space:nowrap}
+
+.cv-footer{margin-top:12pt;border-top:1px solid #ccc;padding-top:6pt;
+           font-size:8.5pt;color:#444;display:flex;justify-content:space-between}
+
+@media print{
+  body{background:#fff;overflow:visible;height:auto}
+  .fp,.hdr{display:none!important}
+  .main{display:block;overflow:visible}
+  .pv{background:#fff;padding:0;display:block}
+  .cv{box-shadow:none;width:100%;min-height:auto;padding:10mm 14mm}
+  @page{size:A4;margin:0}
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <h1>📄 HK Professional CV Builder</h1>
+    <div class="hdr-sub">香港标准专业格式 · 适合金融 / 法律 / 政府 / NGO</div>
+  </div>
+  <div class="hdr-right">
+    <span class="hbtn btn-tip">💡 导出时选「无页眉页脚」+ A4</span>
+    <button class="hbtn btn-ai" onclick="openJD()">✨ JD 智能匹配</button>
+    <a href="index.html" class="hbtn btn-back">← 职位地图</a>
+    <button class="hbtn btn-pdf" onclick="window.print()">⬇ 导出 PDF</button>
+  </div>
+</div>
+
+<div class="main">
+<!-- ══ 表单 ══ -->
+<div class="fp">
+
+  <div class="fp-note">
+    <strong>香港CV要点：</strong>相片必附 · 注明期望薪资 · 教育放首位 · 全英文 · 1–2页
+  </div>
+
+  <!-- 个人资料 -->
+  <div class="sec">
+    <div class="sh" onclick="tog(this)">个人资料 <span class="sa">▼</span></div>
+    <div class="sb" id="s-basic">
+      <div class="photo-row">
+        <div class="photo-preview" id="photo-prev" onclick="document.getElementById('photo-file').click()">
+          <span>点击上传<br>相片</span>
+        </div>
+        <input type="file" id="photo-file" accept="image/*" style="display:none" onchange="loadPhoto(this)">
+        <div class="photo-fields">
+          <div><label>英文全名（Surname first）</label>
+            <input id="f-name-en" placeholder="CHAN, Mei Ki" oninput="render()"></div>
+          <div><label>中文姓名</label>
+            <input id="f-name-zh" placeholder="陳美琪" oninput="render()"></div>
+          <div><label>求职目标</label>
+            <input id="f-pos" placeholder="Management Trainee / PR Officer" oninput="render()"></div>
+        </div>
+      </div>
+      <div class="r2">
+        <div><label>电话</label>
+          <input id="f-phone" placeholder="+852 9XXX XXXX" oninput="render()"></div>
+        <div><label>电邮</label>
+          <input id="f-email" placeholder="xxx@gmail.com" oninput="render()"></div>
+      </div>
+      <div class="r2">
+        <div><label>地址</label>
+          <input id="f-addr" placeholder="Kowloon, Hong Kong" oninput="render()"></div>
+        <div><label>LinkedIn（可选）</label>
+          <input id="f-linkedin" placeholder="linkedin.com/in/..." oninput="render()"></div>
+      </div>
+      <div class="r3">
+        <div><label>出生日期</label>
+          <input id="f-dob" placeholder="DD/MM/YYYY" oninput="render()"></div>
+        <div><label>性别</label>
+          <select id="f-gender" onchange="render()">
+            <option value="">—</option>
+            <option>Female</option><option>Male</option>
+          </select></div>
+        <div><label>HKID（末4位，选填）</label>
+          <input id="f-hkid" placeholder="X(X)XXXX" oninput="render()"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 求职目标 -->
+  <div class="sec">
+    <div class="sh" onclick="tog(this)">求职目标 / Objective <span class="sa">▼</span></div>
+    <div class="sb" id="s-obj">
+      <div>
+        <textarea id="f-obj" rows="4" oninput="render()"
+          placeholder="A highly motivated graduate with a BA in English and MA in Philosophy. Possessing strong analytical, research and written communication skills. Seeking to contribute to [field] in a dynamic organisation."></textarea>
+        <div class="hint">2–3句，英文，说明学历背景 + 目标行业 + 核心优势</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 教育 -->
+  <div class="sec">
+    <div class="sh" onclick="tog(this)">教育背景 Education <span class="sa">▼</span></div>
+    <div class="sb" id="s-edu">
+      <div id="edu-list"></div>
+      <div class="add-btn" onclick="addEdu()">＋ 添加学历</div>
+    </div>
+  </div>
+
+  <!-- 奖项 -->
+  <div class="sec">
+    <div class="sh" onclick="tog(this)">奖项 / 荣誉 Awards <span class="sa">▼</span></div>
+    <div class="sb" id="s-awards">
+      <div id="award-list"></div>
+      <div class="add-btn" onclick="addAward()">＋ 添加奖项</div>
+      <div class="hint">学术奖项、奖学金、比赛名次，新毕业生必填</div>
+    </div>
+  </div>
+
+  <!-- 工作/实习 -->
+  <div class="sec">
+    <div class="sh" onclick="tog(this)">工作 / 实习经验 <span class="sa">▼</span></div>
+    <div class="sb" id="s-exp">
+      <div id="exp-list"></div>
+      <div class="add-btn" onclick="addExp()">＋ 添加经验</div>
+    </div>
+  </div>
+
+  <!-- 技能 -->
+  <div class="sec">
+    <div class="sh" onclick="tog(this)">技能 Skills <span class="sa">▼</span></div>
+    <div class="sb" id="s-skills">
+      <div><label>语言能力</label>
+        <input id="sk-lang" oninput="render()"
+          placeholder="Cantonese (Native), English (Proficient), Mandarin (Fluent)"></div>
+      <div><label>电脑 / 软件</label>
+        <input id="sk-it" oninput="render()"
+          placeholder="MS Office, Google Workspace, Adobe CC..."></div>
+      <div><label>其他</label>
+        <input id="sk-misc" oninput="render()"
+          placeholder="Research, Critical Analysis, Content Writing..."></div>
+    </div>
+  </div>
+
+  <!-- 课外/义工 -->
+  <div class="sec">
+    <div class="sh" onclick="tog(this)">课外 / 义工 Extracurricular <span class="sa">▼</span></div>
+    <div class="sb" id="s-extra">
+      <div id="extra-list"></div>
+      <div class="add-btn" onclick="addExtra()">＋ 添加项目</div>
+    </div>
+  </div>
+
+  <!-- 求职信息 -->
+  <div class="sec">
+    <div class="sh" onclick="tog(this)">求职信息 <span class="sa">▼</span></div>
+    <div class="sb" id="s-meta">
+      <div><label>期望薪资 Expected Salary</label>
+        <input id="f-sal" placeholder="HK$18,000 per month / Negotiable" oninput="render()"></div>
+      <div><label>可入职日期 Availability</label>
+        <input id="f-avail" placeholder="Immediately / 1 month notice / Jun 2026" oninput="render()"></div>
+    </div>
+  </div>
+
+</div><!-- /fp -->
+
+<!-- ══ 预览 ══ -->
+<div class="pv">
+  <div class="cv" id="cv"></div>
+</div>
+</div>
+
+<!-- ══ JD 面板 ══ -->
+<div class="overlay" id="overlay" onclick="closeJD()"></div>
+<div class="jd-panel" id="jd-panel">
+  <div class="jdp-hdr">
+    <h2>✨ JD 智能匹配</h2>
+    <button class="jdp-close" onclick="closeJD()">✕</button>
+  </div>
+  <div class="jdp-body">
+
+    <div class="jdp-section">
+      <h3>粘贴目标职位 JD</h3>
+      <textarea id="jd-text" placeholder="把 JobsDB 上的职位描述完整粘贴到这里...
+
+例：
+We are looking for a PR Officer to join our team...
+Responsibilities:
+- Draft press releases and media materials
+- Manage social media channels
+Requirements:
+- Degree in Communications, English or related
+- Strong written English..."></textarea>
+    </div>
+
+    <div class="jdp-section">
+      <h3>你的背景（可修改）</h3>
+      <textarea id="jd-bg" rows="3" style="height:72px"
+        placeholder="BA in English, MA in Philosophy, fresh graduate, interested in PR/Communications/Policy">BA in English, MA in Philosophy, fresh graduate</textarea>
+    </div>
+
+    <button class="ai-btn" id="ai-btn" onclick="runAI()">
+      <span id="ai-btn-text">🤖 AI 生成匹配内容</span>
+    </button>
+    <div class="ai-status" id="ai-status"></div>
+
+    <div class="jdp-section" id="kw-section" style="display:none;margin-top:16px">
+      <h3>🎯 JD 关键词（已提取）</h3>
+      <div class="kw-tags" id="kw-tags"></div>
+    </div>
+
+    <div class="jdp-section" id="preview-section" style="display:none;margin-top:8px">
+      <h3>📋 生成结果预览</h3>
+      <div id="ai-preview" style="font-size:.8rem;color:#374151;line-height:1.7;
+           background:#f9fafb;padding:12px;border-radius:6px;border:1px solid #e5e7eb"></div>
+    </div>
+
+    <button id="apply-btn" onclick="applyToResume()" style="display:none;
+      width:100%;padding:10px;background:#059669;color:#fff;border:none;
+      border-radius:7px;font-size:.88rem;font-weight:700;cursor:pointer;margin-top:10px">
+      ✅ 应用到简历
+    </button>
+
+  </div>
+</div>
+
+<script>
+// ── 相片 ────────────────────────────────────────────────────────────────────
+let photoDataUrl = '';
+function loadPhoto(inp) {
+  const f = inp.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    photoDataUrl = e.target.result;
+    const prev = document.getElementById('photo-prev');
+    prev.innerHTML = `<img src="${photoDataUrl}">`;
+    render();
+  };
+  r.readAsDataURL(f);
+}
+
+// ── 展开折叠 ─────────────────────────────────────────────────────────────────
+function tog(el) {
+  const b = el.nextElementSibling;
+  const a = el.querySelector('.sa');
+  const c = b.classList.toggle('col');
+  a.style.transform = c ? 'rotate(-90deg)' : '';
+}
+
+// ── 转义 ─────────────────────────────────────────────────────────────────────
+function e(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+const v = id => (document.getElementById(id)||{}).value||'';
+
+// ── 教育 ─────────────────────────────────────────────────────────────────────
+let eduN=0;
+function addEdu(p={}){
+  const id=eduN++;
+  const d=document.createElement('div');
+  d.className='entry';d.dataset.id=id;
+  d.innerHTML=`
+    <button class="del" onclick="rm(this)">✕</button>
+    <div><label>学位名称（英文）</label>
+      <input class="ed" placeholder="Master of Arts in Philosophy" value="${p.deg||''}" oninput="render()"></div>
+    <div><label>学校全名</label>
+      <input class="es" placeholder="The University of Hong Kong" value="${p.sch||''}" oninput="render()"></div>
+    <div class="r2">
+      <div><label>时间</label><input class="ep" placeholder="Sep 2022 – Jul 2024" value="${p.per||''}" oninput="render()"></div>
+      <div><label>GPA / 荣誉</label><input class="eg" placeholder="3.8 / 4.0 · Second Upper" oninput="render()"></div>
+    </div>
+    <div><label>相关科目或论文（可选）</label>
+      <textarea class="et" rows="2" placeholder="Thesis: [title] · Relevant: Logic, Ethics, Political Philosophy" oninput="render()">${p.det||''}</textarea></div>`;
+  document.getElementById('edu-list').appendChild(d);
+  render();
+}
+
+// ── 奖项 ─────────────────────────────────────────────────────────────────────
+let awdN=0;
+function addAward(){
+  const id=awdN++;
+  const d=document.createElement('div');
+  d.className='entry';d.dataset.id=id;
+  d.innerHTML=`
+    <button class="del" onclick="rm(this)">✕</button>
+    <div class="r2">
+      <div><label>奖项名称</label><input class="aw" placeholder="Dean's List / First Class Honours" oninput="render()"></div>
+      <div><label>颁发机构 / 年份</label><input class="ao" placeholder="HKU · 2024" oninput="render()"></div>
+    </div>`;
+  document.getElementById('award-list').appendChild(d);
+  render();
+}
+
+// ── 工作经验 ─────────────────────────────────────────────────────────────────
+let expN=0;
+function addExp(){
+  const id=expN++;
+  const d=document.createElement('div');
+  d.className='entry';d.dataset.id=id;
+  d.innerHTML=`
+    <button class="del" onclick="rm(this)">✕</button>
+    <div><label>职位名称</label><input class="xp" placeholder="PR Intern / Research Assistant" oninput="render()"></div>
+    <div class="r2">
+      <div><label>公司 / 机构</label><input class="xc" placeholder="Company Name, HK" oninput="render()"></div>
+      <div><label>时间</label><input class="xd" placeholder="Jun–Aug 2024" oninput="render()"></div>
+    </div>
+    <div><label>工作内容（每行一条 bullet）</label>
+      <textarea class="xb" rows="4"
+        placeholder="Drafted press releases and media materials in English and Chinese&#10;Conducted market research and compiled executive reports&#10;Coordinated events and liaised with external stakeholders" oninput="render()"></textarea></div>`;
+  document.getElementById('exp-list').appendChild(d);
+  render();
+}
+
+// ── 课外 ─────────────────────────────────────────────────────────────────────
+let extN=0;
+function addExtra(){
+  const id=extN++;
+  const d=document.createElement('div');
+  d.className='entry';d.dataset.id=id;
+  d.innerHTML=`
+    <button class="del" onclick="rm(this)">✕</button>
+    <div class="r2">
+      <div><label>活动 / 职衔</label><input class="xtn" placeholder="President, Debate Society" oninput="render()"></div>
+      <div><label>机构 / 时间</label><input class="xto" placeholder="HKU · 2022–2023" oninput="render()"></div>
+    </div>
+    <div><label>简述（可选）</label>
+      <input class="xtd" placeholder="Organised inter-varsity debate competition with 200+ participants" oninput="render()"></div>`;
+  document.getElementById('extra-list').appendChild(d);
+  render();
+}
+
+// ── 删除 ─────────────────────────────────────────────────────────────────────
+function rm(btn){ btn.closest('.entry').remove(); render(); }
+
+// ── 主渲染 ───────────────────────────────────────────────────────────────────
+function render(){
+  const nameEn = v('f-name-en');
+  const nameZh = v('f-name-zh');
+  const pos    = v('f-pos');
+  const phone  = v('f-phone');
+  const email  = v('f-email');
+  const addr   = v('f-addr');
+  const linkedin=v('f-linkedin');
+  const dob    = v('f-dob');
+  const gender = v('f-gender');
+  const hkid   = v('f-hkid');
+  const obj    = v('f-obj');
+  const skLang = v('sk-lang');
+  const skIT   = v('sk-it');
+  const skMisc = v('sk-misc');
+  const sal    = v('f-sal');
+  const avail  = v('f-avail');
+
+  if (!nameEn && !nameZh) {
+    document.getElementById('cv').innerHTML =
+      `<div style="color:#94a3b8;text-align:center;margin-top:80px;font-size:12px;font-family:sans-serif">
+        ← 请在左侧填写姓名开始预览
+       </div>`;
+    return;
+  }
+
+  // 相片
+  const photoHTML = photoDataUrl
+    ? `<img class="cv-photo" src="${photoDataUrl}">`
+    : `<div class="cv-photo-placeholder">Recent<br>Photo<br>相片</div>`;
+
+  // 个人资料行
+  const particulars = [
+    dob    ? ['Date of Birth', dob] : null,
+    gender ? ['Gender',        gender] : null,
+    hkid   ? ['HKID No.',      hkid+'(X)'] : null,
+  ].filter(Boolean);
+
+  // 联系方式
+  const contacts = [
+    phone   ? `<div><span class="lbl">Tel:</span>${e(phone)}</div>` : '',
+    email   ? `<div><span class="lbl">Email:</span>${e(email)}</div>` : '',
+    addr    ? `<div><span class="lbl">Address:</span>${e(addr)}</div>` : '',
+    linkedin? `<div><span class="lbl">LinkedIn:</span>${e(linkedin)}</div>` : '',
+  ].filter(Boolean).join('');
+
+  // 教育
+  let eduHTML = '';
+  document.querySelectorAll('#edu-list .entry').forEach(en=>{
+    const deg = en.querySelector('.ed')?.value||'';
+    const sch = en.querySelector('.es')?.value||'';
+    const per = en.querySelector('.ep')?.value||'';
+    const gpa = en.querySelector('.eg')?.value||'';
+    const det = en.querySelector('.et')?.value||'';
+    if (!deg&&!sch) return;
+    const bullets = det.split('\n').filter(l=>l.trim());
+    eduHTML += `<div class="cv-item">
+      <div class="cv-row"><span class="title">${e(deg)}</span><span class="date">${e(per)}</span></div>
+      <div class="cv-sub">${e(sch)}${gpa?` &nbsp;|&nbsp; ${e(gpa)}`:''}</div>
+      ${bullets.length?`<div class="cv-desc"><ul>${bullets.map(b=>`<li>${e(b.trim())}</li>`).join('')}</ul></div>`:''}
+    </div>`;
+  });
+
+  // 奖项
+  let awardHTML = '';
+  document.querySelectorAll('#award-list .entry').forEach(en=>{
+    const aw = en.querySelector('.aw')?.value||'';
+    const ao = en.querySelector('.ao')?.value||'';
+    if (!aw) return;
+    awardHTML += `<div class="cv-item" style="margin-bottom:4pt">
+      <div class="cv-row"><span class="title">${e(aw)}</span><span class="date">${e(ao)}</span></div>
+    </div>`;
+  });
+
+  // 工作经验
+  let expHTML = '';
+  document.querySelectorAll('#exp-list .entry').forEach(en=>{
+    const pos = en.querySelector('.xp')?.value||'';
+    const co  = en.querySelector('.xc')?.value||'';
+    const dt  = en.querySelector('.xd')?.value||'';
+    const bul = en.querySelector('.xb')?.value||'';
+    if (!pos&&!co) return;
+    const bullets = bul.split('\n').filter(l=>l.trim());
+    expHTML += `<div class="cv-item">
+      <div class="cv-row"><span class="title">${e(pos)}</span><span class="date">${e(dt)}</span></div>
+      <div class="cv-sub">${e(co)}</div>
+      ${bullets.length?`<div class="cv-desc"><ul>${bullets.map(b=>`<li>${e(b.trim())}</li>`).join('')}</ul></div>`:''}
+    </div>`;
+  });
+
+  // 技能
+  const skillRows = [
+    skLang ? ['Languages',    skLang] : null,
+    skIT   ? ['IT Skills',    skIT]   : null,
+    skMisc ? ['Other Skills', skMisc] : null,
+  ].filter(Boolean);
+  const skillHTML = skillRows.length
+    ? `<table class="cv-skills-tbl">${
+        skillRows.map(r=>`<tr><td>${r[0]}</td><td>${e(r[1])}</td></tr>`).join('')
+      }</table>` : '';
+
+  // 课外
+  let extraHTML = '';
+  document.querySelectorAll('#extra-list .entry').forEach(en=>{
+    const nm = en.querySelector('.xtn')?.value||'';
+    const or = en.querySelector('.xto')?.value||'';
+    const ds = en.querySelector('.xtd')?.value||'';
+    if (!nm) return;
+    extraHTML += `<div class="cv-item" style="margin-bottom:5pt">
+      <div class="cv-row"><span class="title">${e(nm)}</span><span class="date">${e(or)}</span></div>
+      ${ds?`<div class="cv-desc">${e(ds)}</div>`:''}
+    </div>`;
+  });
+
+  // 页脚
+  const footerLeft  = [sal?`Expected Salary: ${e(sal)}`:'', avail?`Availability: ${e(avail)}`:''].filter(Boolean).join('&nbsp;&nbsp;|&nbsp;&nbsp;');
+  const footerRight = 'References available upon request';
+
+  // 组装
+  document.getElementById('cv').innerHTML = `
+    <div class="cv-top">
+      <div class="cv-name-block">
+        <div class="cv-name">${e(nameEn||nameZh)}</div>
+        ${nameEn&&nameZh?`<div class="cv-name-zh">${e(nameZh)}</div>`:''}
+        ${pos?`<div style="font-size:10pt;color:#555;margin-top:3pt;font-style:italic">${e(pos)}</div>`:''}
+        <div class="cv-contacts" style="margin-top:5pt">${contacts}</div>
+        ${particulars.length?`<div style="margin-top:4pt;font-size:8.5pt;">
+          ${particulars.map(p=>`<span style="margin-right:12pt"><b>${p[0]}:</b> ${e(p[1])}</span>`).join('')}
+        </div>`:''}
+      </div>
+      ${photoHTML}
+    </div>
+
+    ${obj?`<div class="cv-section">
+      <h2>Objective</h2>
+      <div class="cv-desc" style="font-style:italic">${e(obj)}</div>
+    </div>`:''}
+
+    ${eduHTML?`<div class="cv-section"><h2>Education</h2>${eduHTML}</div>`:''}
+    ${awardHTML?`<div class="cv-section"><h2>Awards &amp; Achievements</h2>${awardHTML}</div>`:''}
+    ${expHTML?`<div class="cv-section"><h2>Work &amp; Internship Experience</h2>${expHTML}</div>`:''}
+    ${skillHTML?`<div class="cv-section"><h2>Skills</h2>${skillHTML}</div>`:''}
+    ${extraHTML?`<div class="cv-section"><h2>Extracurricular &amp; Volunteer Activities</h2>${extraHTML}</div>`:''}
+
+    <div class="cv-footer">
+      <span>${footerLeft}</span>
+      <span><i>${footerRight}</i></span>
+    </div>
+  `;
+}
+
+// ── JD 面板 ──────────────────────────────────────────────────────────────────
+let aiResult = null;
+
+function openJD() {
+  document.getElementById('jd-panel').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+}
+function closeJD() {
+  document.getElementById('jd-panel').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+}
+
+// 从地图页跳转时自动带入JD
+const urlParams = new URLSearchParams(location.search);
+const autoJD = urlParams.get('jd');
+if (autoJD) {
+  window.addEventListener('load', () => {
+    document.getElementById('jd-text').value = decodeURIComponent(autoJD);
+    openJD();
+  });
+}
+
+async function runAI() {
+  const jd = document.getElementById('jd-text').value.trim();
+  if (!jd) { alert('请先粘贴职位JD'); return; }
+
+  const bg  = document.getElementById('jd-bg').value.trim();
+  const btn = document.getElementById('ai-btn');
+  const st  = document.getElementById('ai-status');
+  const btnTxt = document.getElementById('ai-btn-text');
+
+  // 收集现有工作经验
+  const experiences = [];
+  document.querySelectorAll('#exp-list .entry').forEach((en, i) => {
+    const pos = en.querySelector('.xp')?.value || '';
+    const co  = en.querySelector('.xc')?.value || '';
+    const bul = en.querySelector('.xb')?.value || '';
+    if (pos || co) experiences.push({ index: i, position: pos, company: co, bullets: bul });
+  });
+
+  btn.disabled = true;
+  btnTxt.textContent = '⏳ AI 分析中…';
+  st.className = 'ai-status loading';
+  st.textContent = '正在分析JD并生成匹配内容，请稍等（约10–20秒）…';
+  document.getElementById('kw-section').style.display = 'none';
+  document.getElementById('preview-section').style.display = 'none';
+  document.getElementById('apply-btn').style.display = 'none';
+
+  try {
+    const res = await fetch('/api/tailor', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jd, background: bg, experiences })
+    });
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    aiResult = await res.json();
+
+    // 显示关键词
+    if (aiResult.keywords?.length) {
+      document.getElementById('kw-tags').innerHTML =
+        aiResult.keywords.map(k => `<span class="kw-tag">${e(k)}</span>`).join('');
+      document.getElementById('kw-section').style.display = 'block';
+    }
+
+    // 预览
+    let preview = '';
+    if (aiResult.objective) {
+      preview += `<div style="margin-bottom:10px"><b>📌 Objective:</b><br>${e(aiResult.objective)}</div>`;
+    }
+    if (aiResult.experiences?.length) {
+      aiResult.experiences.forEach(ex => {
+        const expEntry = experiences[ex.index];
+        if (expEntry) {
+          preview += `<div style="margin-bottom:10px"><b>💼 ${e(expEntry.position || 'Experience '+(ex.index+1))}:</b><ul style="padding-left:14px;margin-top:4px">`;
+          ex.bullets.forEach(b => { preview += `<li style="margin-bottom:2px">${e(b)}</li>`; });
+          preview += `</ul></div>`;
+        }
+      });
+    }
+    if (!preview) preview = '<i>已生成，点击"应用到简历"查看效果</i>';
+    document.getElementById('ai-preview').innerHTML = preview;
+    document.getElementById('preview-section').style.display = 'block';
+    document.getElementById('apply-btn').style.display = 'block';
+
+    st.className = 'ai-status ok';
+    st.textContent = '✅ 生成完毕！检查预览后点击"应用到简历"';
+  } catch(err) {
+    st.className = 'ai-status err';
+    st.textContent = '❌ 出错：' + err.message;
+  } finally {
+    btn.disabled = false;
+    btnTxt.textContent = '🤖 AI 生成匹配内容';
+  }
+}
+
+function applyToResume() {
+  if (!aiResult) return;
+
+  // 填入 Objective
+  if (aiResult.objective) {
+    document.getElementById('f-obj').value = aiResult.objective;
+  }
+
+  // 填入工作经验 bullets
+  if (aiResult.experiences?.length) {
+    const entries = document.querySelectorAll('#exp-list .entry');
+    aiResult.experiences.forEach(ex => {
+      if (entries[ex.index]) {
+        const ta = entries[ex.index].querySelector('.xb');
+        if (ta) ta.value = ex.bullets.join('\n');
+      }
+    });
+  }
+
+  render();
+  closeJD();
+
+  // 闪烁提示
+  const expSec = document.getElementById('s-exp');
+  if (expSec) {
+    expSec.style.background = '#f0fdf4';
+    setTimeout(() => expSec.style.background = '', 1500);
+  }
+}
+
+// ── 预填默认值 ────────────────────────────────────────────────────────────────
+window.onload = () => {
+  addEdu({deg:'Master of Arts in Philosophy', sch:'', per:'Sep 20XX – Jul 20XX',
+          det:'Thesis: [题目]\nRelevant modules: Logic, Ethics, Political Philosophy, Philosophy of Language'});
+  addEdu({deg:'Bachelor of Arts in English',  sch:'', per:'Sep 20XX – Jul 20XX',
+          det:'Major: English Language & Literature\nRelevant modules: Academic Writing, Linguistics, Critical Theory'});
+  render();
+};
+</script>
+</body>
+</html>
