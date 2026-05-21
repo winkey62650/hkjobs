@@ -8,6 +8,7 @@ POST JSON resume data -> application/pdf
 from http.server import BaseHTTPRequestHandler
 import json, base64
 from io import BytesIO
+from datetime import datetime, timedelta
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
@@ -19,7 +20,7 @@ from reportlab.lib.enums import TA_RIGHT
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.pdfbase.pdfmetrics import stringWidth
-from pypdf import PdfReader
+from pypdf import PdfReader, PdfWriter
 
 # 中文字体（用于中文姓名）— ReportLab 自带的 CID 字体，无需字体文件
 try:
@@ -268,15 +269,88 @@ def _render(data, fs, sp, mv_mm, F):
     return buf.getvalue()
 
 
-def generate_pdf(data):
-    F = FONTS["modern" if data.get("template") == "modern" else "classic"]
+def _resume_pdf(data, F):
+    """Resume only — auto-fit to exactly one page."""
     for fs, sp, mv_mm in SCALES:
         pdf = _render(data, fs, sp, mv_mm, F)
         if len(PdfReader(BytesIO(pdf)).pages) == 1:
             return pdf
-    # fallback: tightest scale even if >1 page
     fs, sp, mv_mm = SCALES[-1]
     return _render(data, fs, sp, mv_mm, F)
+
+
+def _coverletter_pdf(data, F):
+    """One-page cover letter (header, date, subject, salutation, body, sign-off)."""
+    name = data.get("name", "")
+    contacts = [c for c in (data.get("contacts") or []) if str(c).strip()]
+    company = (data.get("company") or "").strip()
+    role = (data.get("roleTitle") or "").strip()
+    today = (datetime.utcnow() + timedelta(hours=8)).strftime("%d %B %Y")
+
+    cl = (data.get("coverLetter") or "").replace("\r", "").strip()
+    paras = [p.strip() for p in cl.split("\n\n") if p.strip()]
+    if len(paras) <= 1:
+        paras = [p.strip() for p in cl.split("\n") if p.strip()]
+
+    def render(fs):
+        name_s = ParagraphStyle("CN", fontName=F["bold"], fontSize=fs * 1.7,
+            leading=fs * 2.0, textColor=F["name"])
+        contact_s = ParagraphStyle("CC", fontName=F["reg"], fontSize=fs * 0.9,
+            leading=fs * 1.5, textColor=colors.HexColor("#444444"))
+        meta_s = ParagraphStyle("CM", fontName=F["reg"], fontSize=fs,
+            leading=fs * 1.5, textColor=colors.HexColor("#222222"))
+        subj_s = ParagraphStyle("CS", fontName=F["bold"], fontSize=fs,
+            leading=fs * 1.5)
+        body_s = ParagraphStyle("CB", fontName=F["reg"], fontSize=fs,
+            leading=fs * 1.62, spaceAfter=fs * 0.85,
+            textColor=colors.HexColor("#1a1a1a"))
+        S = [Paragraph(esc(name) or "Cover Letter", name_s)]
+        if contacts:
+            S.append(Paragraph("&#160;&#160;|&#160;&#160;".join(esc(c) for c in contacts),
+                               contact_s))
+        S.append(HRFlowable(width="100%", thickness=1, color=colors.black,
+                            spaceBefore=5, spaceAfter=12))
+        S.append(Paragraph(today, meta_s))
+        S.append(Spacer(1, fs * 1.1))
+        if role or company:
+            subj = "Re: Application for " + (esc(role) or "the advertised position")
+            if company:
+                subj += " &#8212; " + esc(company)
+            S.append(Paragraph(subj, subj_s))
+            S.append(Spacer(1, fs * 0.7))
+        S.append(Paragraph("Dear Hiring Manager,", meta_s))
+        S.append(Spacer(1, fs * 0.7))
+        for p in paras:
+            S.append(Paragraph(esc(p), body_s))
+        S.append(Spacer(1, fs * 0.5))
+        S.append(Paragraph("Yours sincerely,", meta_s))
+        S.append(Spacer(1, fs * 2.6))
+        S.append(Paragraph("<b>%s</b>" % esc(name), meta_s))
+        return S
+
+    for fs, mv in [(11.0, 18), (10.4, 16), (9.8, 15), (9.2, 13)]:
+        buf = BytesIO()
+        SimpleDocTemplate(buf, pagesize=A4, leftMargin=MARGIN_H, rightMargin=MARGIN_H,
+            topMargin=mv * mm, bottomMargin=mv * mm).build(render(fs))
+        if len(PdfReader(BytesIO(buf.getvalue())).pages) == 1:
+            return buf.getvalue()
+    return buf.getvalue()
+
+
+def generate_pdf(data):
+    """Resume PDF; if coverLetter is present, append it as page 2."""
+    F = FONTS["modern" if data.get("template") == "modern" else "classic"]
+    resume = _resume_pdf(data, F)
+    if not (data.get("coverLetter") or "").strip():
+        return resume
+    cover = _coverletter_pdf(data, F)
+    writer = PdfWriter()
+    for src in (resume, cover):
+        for page in PdfReader(BytesIO(src)).pages:
+            writer.add_page(page)
+    out = BytesIO()
+    writer.write(out)
+    return out.getvalue()
 
 
 class handler(BaseHTTPRequestHandler):
@@ -337,6 +411,16 @@ if __name__ == "__main__":
                              "desc": "Led inter-varsity competitions"}],
         "footer": {"salary": "HK$18,000/month", "availability": "Immediately"},
         "template": "classic",
+        "company": "ABC Holdings Limited",
+        "roleTitle": "Public Relations Officer",
+        "coverLetter": "I am writing to express my strong interest in the Public "
+            "Relations Officer position. With a Master's in Philosophy and hands-on "
+            "PR experience, I am confident I can contribute from day one.\n\n"
+            "During my internship at ABC Communications I drafted bilingual press "
+            "releases and coordinated events with over 100 attendees, directly "
+            "matching your need for strong communication and event skills.\n\n"
+            "I would welcome the opportunity to discuss how I can support your team "
+            "and look forward to hearing from you.",
     }
     out = generate_pdf(sample)
     with open("/tmp/test_resume.pdf", "wb") as f:

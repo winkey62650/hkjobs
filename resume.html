@@ -372,11 +372,18 @@ textarea{resize:vertical;min-height:58px}
       <div id="ai-preview" style="font-size:.8rem;color:#374151;line-height:1.7;
            background:#f0fdf4;padding:12px;border-radius:7px;border:1px solid #d1fae5"></div>
     </div>
-    <button id="apply-btn" onclick="applyToResume()" style="display:none;
-      width:100%;padding:11px;background:linear-gradient(135deg,#4ade80,#16a34a);color:#fff;
-      border:none;border-radius:8px;font-size:.9rem;font-weight:800;cursor:pointer;margin-top:10px">
-      ✅ 应用到简历
-    </button>
+    <div id="ai-actions" style="display:none;flex-direction:column;gap:8px;margin-top:10px">
+      <button id="dl-full-btn" onclick="downloadFull()" style="
+        width:100%;padding:12px;background:linear-gradient(135deg,#4ade80,#16a34a);color:#fff;
+        border:none;border-radius:8px;font-size:.92rem;font-weight:800;cursor:pointer">
+        📥 下载简历 + Cover Letter
+      </button>
+      <button id="apply-btn" onclick="applyToResume()" style="
+        width:100%;padding:9px;background:#f0fdf4;color:#15803d;
+        border:1.5px solid #86efac;border-radius:8px;font-size:.84rem;font-weight:700;cursor:pointer">
+        ✅ 仅应用到简历表单
+      </button>
+    </div>
   </div>
 </div>
 
@@ -692,12 +699,13 @@ async function runAI(){
   st.className='ai-status loading';
   st.textContent='正在分析JD并生成匹配内容，请稍等（约10–20秒）…';
   ['kw-section','preview-section'].forEach(id=>document.getElementById(id).style.display='none');
-  document.getElementById('apply-btn').style.display='none';
+  document.getElementById('ai-actions').style.display='none';
 
   try{
     const res=await fetch('/api/tailor',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({jd,background:bg,experiences})
+      body:JSON.stringify({jd,background:bg,experiences,
+                           name:v('f-name-en')||v('f-name-zh')})
     });
     if(!res.ok) throw new Error(`API error ${res.status}`);
     aiResult=await res.json();
@@ -719,10 +727,13 @@ async function runAI(){
         preview+=`</ul></div>`;
       });
     }
-    if(!preview) preview='<i>已生成，点击"应用到简历"</i>';
+    if(aiResult.coverLetter)
+      preview+=`<div style="margin-bottom:6px"><b>📨 Cover Letter：</b><br>`
+        +`<span style="white-space:pre-wrap">${e(aiResult.coverLetter)}</span></div>`;
+    if(!preview) preview='<i>已生成</i>';
     document.getElementById('ai-preview').innerHTML=preview;
     document.getElementById('preview-section').style.display='block';
-    document.getElementById('apply-btn').style.display='block';
+    document.getElementById('ai-actions').style.display='flex';
     st.className='ai-status ok';
     st.textContent='✅ 生成完毕！检查预览后点击"应用到简历"';
   }catch(err){
@@ -733,7 +744,7 @@ async function runAI(){
   }
 }
 
-function applyToResume(){
+function applyAIContent(){
   if(!aiResult) return;
   if(aiResult.objective) document.getElementById('f-obj').value=aiResult.objective;
   if(aiResult.skills){
@@ -748,11 +759,53 @@ function applyToResume(){
       if(ta && ex.bullets?.length) ta.value=ex.bullets.join('\n');
     });
   }
+}
+
+function applyToResume(){
+  if(!aiResult) return;
+  applyAIContent();
   render();
   closeJD();
   const sec=document.getElementById('s-exp');
   sec.style.background='#dcfce7';
   setTimeout(()=>sec.style.background='',1500);
+}
+
+// 一次生成：套用 AI 内容 → 下载「简历 + Cover Letter」二合一 PDF
+async function downloadFull(){
+  if(!aiResult){ alert('请先点上方「AI 生成匹配内容」'); return; }
+  if(!v('f-name-en') && !v('f-name-zh')){ alert('请先在表单填写姓名'); return; }
+  applyAIContent();
+  render();
+  const btn=document.getElementById('dl-full-btn');
+  const orig=btn.textContent;
+  btn.textContent='⏳ 生成中（约 10 秒）…';
+  btn.style.pointerEvents='none';
+  try{
+    const payload=buildPdfPayload();
+    payload.coverLetter=aiResult.coverLetter||'';
+    payload.company=aiResult.company||'';
+    payload.roleTitle=aiResult.roleTitle||'';
+    const res=await fetch('/api/resume',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const blob=await res.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    const base=(v('f-name-en')||v('f-name-zh')).replace(/[^\w一-龥-]+/g,'_');
+    a.download=base+'_CV+CoverLetter.pdf';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    closeJD();
+  }catch(err){
+    alert('生成失败：'+err.message);
+  }finally{
+    btn.textContent=orig;
+    btn.style.pointerEvents='';
+  }
 }
 
 // ── 导出 PDF（调用 ReportLab 后端，生成专业一页 PDF）─────────────────────────
