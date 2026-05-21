@@ -101,7 +101,6 @@ SOURCE_COLORS = {
     "NGO":        "#0d9488",
     "Recruit":    "#7c3aed",
     "JobMarket":  "#db2777",
-    "Glassdoor":  "#0caa41",
 }
 
 
