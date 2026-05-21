@@ -150,14 +150,24 @@ async function doCreate(){
   }
 }
 
-// ── 引导问答（脚本式，即时）──────────────────────────────────────────────────
-const QUESTIONS = [
-  {key:'name',   q:'你的英文全名是？（姓在前，例：CHAN, Mei Ki —— 简历会用到）'},
-  {key:'email',  q:'你的常用电邮？'},
-  {key:'level',  q:'最高学历是？（例：学士 / 硕士）'},
-  {key:'school', q:'就读 / 毕业于哪所学校？'},
-  {key:'major',  q:'什么专业？'},
-  {key:'jobs',   q:'最后 —— 简单说说你过往的工作经历：做过什么职位、在哪些公司？（应届可填「应届毕业生」）'},
+// ── 引导问答（脚本式、分支、即时）────────────────────────────────────────────
+const Q = {
+  name:    '先认识一下 —— 你的英文全名？（姓在前，例：CHAN, Mei Ki，简历会用到）',
+  email:   '你的常用电邮？',
+  target:  '你想找什么方向 / 职位的工作？（例：市场营销、行政文员、数据分析）',
+  level:   '你的最高学历是？（本科 / 硕士 / 博士）',
+  pg_school:'研究生 —— 在哪所学校就读 / 毕业？',
+  pg_major: '研究生 —— 什么专业？',
+  pg_exp:   '研究生期间有什么值得写进简历的？（印象深的课程、论文 / 研究方向、成绩荣誉、学术项目 —— 想到什么说什么）',
+  ug_school:'本科 —— 在哪所学校就读 / 毕业？',
+  ug_major: '本科 —— 什么专业？',
+  ug_exp:   '本科期间有什么值得写的？（课程、毕业论文 / 设计、成绩荣誉、社团职务、学术或课程项目）',
+  jobcount: '你有几段工作或实习经历？（直接填数字；应届还没有就填 0）',
+  skills:   '最后 —— 你的语言能力、电脑 / 软件技能、证书？（有什么写什么）',
+};
+let questions = [
+  {k:'name',q:Q.name},{k:'email',q:Q.email},
+  {k:'target',q:Q.target},{k:'level',q:Q.level},
 ];
 let step = 0;
 const answers = {};
@@ -169,7 +179,7 @@ function startOnboarding(isNew){
     document.getElementById('banner-code').textContent = acctId;
     document.getElementById('code-banner').style.display = 'flex';
   }
-  addBub('ai', '你好，欢迎来到秒投 👋\n花 1 分钟认识一下你，之后就能开始找工作了。');
+  addBub('ai', '你好，欢迎来到秒投 👋\n我会问你一些问题（学历、工作经历…），把你的经历整理成一份专业简历 —— 答得越具体，简历越好。');
   setTimeout(()=>askNext(), 500);
 }
 function addBub(who, text){
@@ -181,26 +191,52 @@ function addBub(who, text){
   c.scrollTop = c.scrollHeight;
 }
 function askNext(){
-  if(step < QUESTIONS.length){
-    addBub('ai', QUESTIONS[step].q);
+  if(step < questions.length){
+    addBub('ai', questions[step].q);
     document.getElementById('answer').focus();
   }
   document.getElementById('pbar').style.width =
-    Math.round(step / QUESTIONS.length * 100) + '%';
+    Math.round(step / Math.max(questions.length,1) * 100) + '%';
+}
+// 根据回答动态插入后续问题（研究生分支、按段数循环）
+function expandQueue(qObj, val){
+  if(qObj.k === 'level'){
+    const pg = /硕士|博士|研究生|master|phd|doctor|postgrad/i.test(val);
+    const block = [];
+    if(pg) block.push({k:'pg_school',q:Q.pg_school},{k:'pg_major',q:Q.pg_major},{k:'pg_exp',q:Q.pg_exp});
+    block.push({k:'ug_school',q:Q.ug_school},{k:'ug_major',q:Q.ug_major},{k:'ug_exp',q:Q.ug_exp});
+    block.push({k:'jobcount',q:Q.jobcount});
+    questions.splice(step+1, 0, ...block);
+  }
+  if(qObj.k === 'jobcount'){
+    let n = parseInt((val.match(/\d+/)||['0'])[0], 10);
+    n = Math.max(0, Math.min(n, 5));
+    const block = [];
+    for(let j=1;j<=n;j++){
+      block.push({k:'job'+j+'_role',
+        q:'第 '+j+' 段经历 —— 职位、公司、大概时间？（例：市场实习生 · ABC 公司 · 2024 暑期）'});
+      block.push({k:'job'+j+'_detail',
+        q:'第 '+j+' 段 —— 你具体做了什么？负责过哪些项目？有没有可量化的成果（如 提升 30%、办了 5 场活动、服务 200+ 客户）？尽量具体。'});
+    }
+    block.push({k:'skills',q:Q.skills});
+    questions.splice(step+1, 0, ...block);
+  }
 }
 async function onbNext(){
   const inp = document.getElementById('answer');
   const val = (inp.value||'').trim();
   if(!val) return;
-  if(QUESTIONS[step].key==='email' && !/.+@.+\..+/.test(val)){
+  const qObj = questions[step];
+  if(qObj.k==='email' && !/.+@.+\..+/.test(val)){
     addBub('ai','这个电邮看起来不太对，再确认一下？'); return;
   }
   addBub('me', val);
-  answers[QUESTIONS[step].key] = val;
+  answers[qObj.k] = val;
   inp.value = '';
+  expandQueue(qObj, val);
   step++;
-  if(step < QUESTIONS.length){
-    setTimeout(()=>askNext(), 350);
+  if(step < questions.length){
+    setTimeout(()=>askNext(), 300);
   }else{
     document.getElementById('pbar').style.width = '100%';
     inp.disabled = true;
@@ -264,16 +300,22 @@ function buildResume(d){
     extra:[]
   };
 }
-// 兜底：AI 整理失败时，先存原始信息
+// 兜底：AI 整理失败时，先存原始信息（不规范也不卡流程）
 function buildResumeRaw(){
   const a = answers;
+  const edu = [];
+  if(a.pg_school || a.pg_major)
+    edu.push({deg:a.pg_major||'',sch:a.pg_school||'',per:'',gpa:'',det:a.pg_exp||''});
+  edu.push({deg:a.ug_major||'',sch:a.ug_school||'',per:'',gpa:'',det:a.ug_exp||''});
+  const exp = [];
+  for(let j=1;j<=5;j++){
+    if(a['job'+j+'_role'] || a['job'+j+'_detail'])
+      exp.push({pos:a['job'+j+'_role']||'',co:'',dt:'',bul:a['job'+j+'_detail']||''});
+  }
   return {
     template:'classic', photo:'',
-    fields:{'f-name-en':a.name||'','f-email':a.email||''},
-    edu:[{deg:(a.level?a.level+'，':'')+(a.major||''),sch:a.school||'',per:'',gpa:'',det:''}],
-    awards:[],
-    exp:a.jobs?[{pos:'',co:'',dt:'',bul:a.jobs}]:[],
-    extra:[]
+    fields:{'f-name-en':a.name||'','f-email':a.email||'','sk-misc':a.skills||''},
+    edu, awards:[], exp, extra:[]
   };
 }
 

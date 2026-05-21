@@ -30,15 +30,18 @@ const EXTRACT_SYS = `你是香港专业简历顾问。根据下面的访谈对�
   "skills":"skill1, skill2, skill3"
 }`;
 
-const ONBOARD_SYS = `你是香港专业简历顾问。求职者刚填了基本信息，可能是中文、口语化、不规范。
-请把它整理成「香港求职 CV 标准」的英文结构化数据：
-- 学位用规范英文：例「硕士 + 统计学」→「Master of Science in Statistics」，「学士 + 英文」→「Bachelor of Arts in English」；
-- 学校用通用英文名：例「马来亚大学」→「University of Malaya」，「香港中文大学」→「The Chinese University of Hong Kong」；
-- 过往职业整理成英文 experience 条目，每条 2-4 个 bullet，强动词开头；信息不足就写合理的通用职责，绝不要编造具体数字；
-- 写一段 2-3 句英文 OBJECTIVE，结合其学历与背景；
-- 给 6-8 个相关英文技能；
+const ONBOARD_SYS = `你是香港专业简历顾问。求职者通过一轮问答提供了原始信息（可能中文、口语化、不规范）。
+请整理成「香港求职 CV 标准」的英文结构化数据：
+- 学位用规范英文：「硕士 + 统计学」→「Master of Science in Statistics」，「本科 + 英文」→「Bachelor of Arts in English」。
+  若同时有研究生和本科，education 要列「两条」，研究生在前、本科在后；
+- 学校用通用英文名：「马来亚大学」→「University of Malaya」，「香港中文大学」→「The Chinese University of Hong Kong」；
+- education 的 detail：把该学历的「学习经历」整理成一句简洁英文（相关课程 / 论文 / 荣誉 / 学术项目，挑要点）；
+- experience：每一段工作 / 实习一个条目，bullets 写 2-4 条，强动词开头（Drafted / Led / Analysed 等）。
+  务必保留求职者提到的「负责的项目」和「数字成果」（如 30%、5 场活动、200+ 客户）；原文没有数字就不要编造；
+- objective：2-3 句英文，结合求职者的「求职方向」与其学历背景；
+- skills：把求职者填的技能整理成规范英文，可再补充少量明显相关的技能；
 - 英文名保持求职者填写的写法；
-- 任何未提供的字段（如 period、detail）一律留「空字符串」，绝不要填 "Not Specified"、"N/A"、"TBD" 等占位词。
+- 任何未提供的字段（period、detail 等）一律留「空字符串」，绝不要填 "Not Specified"、"N/A"、"TBD"。
 只输出 JSON，不要 markdown 围栏：
 {
   "nameEn":"",
@@ -131,10 +134,22 @@ export default async function handler(req, res) {
     // ── 进站引导整理：原始信息 → 规范英文简历字段 ────────────────────────
     if (mode === "onboard") {
       const a = req.body.answers || {};
-      const raw =
-        "姓名：" + (a.name || "") + "\n电邮：" + (a.email || "") +
-        "\n学历：" + (a.level || "") + "\n学校：" + (a.school || "") +
-        "\n专业：" + (a.major || "") + "\n过往职业：" + (a.jobs || "");
+      let raw = "英文名：" + (a.name || "") + "\n电邮：" + (a.email || "") +
+        "\n求职方向：" + (a.target || "") + "\n最高学历：" + (a.level || "") + "\n";
+      if (a.pg_school || a.pg_major || a.pg_exp) {
+        raw += "\n【研究生】学校：" + (a.pg_school || "") + "　专业：" + (a.pg_major || "") +
+          "\n研究生学习经历：" + (a.pg_exp || "") + "\n";
+      }
+      raw += "\n【本科】学校：" + (a.ug_school || "") + "　专业：" + (a.ug_major || "") +
+        "\n本科学习经历：" + (a.ug_exp || "") + "\n";
+      raw += "\n工作 / 实习经历（共 " + (a.jobcount || "0") + " 段）：\n";
+      for (let j = 1; j <= 6; j++) {
+        if (a["job" + j + "_role"] || a["job" + j + "_detail"]) {
+          raw += "第 " + j + " 段 —— " + (a["job" + j + "_role"] || "") +
+            "\n　做了什么 / 项目 / 数字成果：" + (a["job" + j + "_detail"] || "") + "\n";
+        }
+      }
+      raw += "\n技能 / 证书 / 语言：" + (a.skills || "");
       const completion = await client.chat.completions.create({
         model: "mimo-v2.5",
         max_tokens: 3500,
