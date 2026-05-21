@@ -697,7 +697,12 @@ async function runAI(){
 
   btn.disabled=true; btnTxt.textContent='⏳ AI 分析中…';
   st.className='ai-status loading';
-  st.textContent='正在分析JD并生成匹配内容，请稍等（约10–20秒）…';
+  let aiSec=0;
+  st.textContent='AI 正在深度分析 JD，生成简历内容 + Cover Letter…（约 1 分钟，请勿关闭页面）';
+  const aiTimer=setInterval(()=>{
+    aiSec++;
+    st.textContent='AI 分析中… 已用 '+aiSec+' 秒（推理模型较慢，通常约 1 分钟，请勿关闭页面）';
+  },1000);
   ['kw-section','preview-section'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById('ai-actions').style.display='none';
 
@@ -740,6 +745,7 @@ async function runAI(){
     st.className='ai-status err';
     st.textContent='❌ 出错：'+err.message;
   }finally{
+    clearInterval(aiTimer);
     btn.disabled=false; btnTxt.textContent='🤖 AI 生成匹配内容';
   }
 }

@@ -23,8 +23,14 @@ DATA_DIR  = ROOT / "data"
 OUT_FILE  = DATA_DIR / "jobs.json"
 MAX_PAGES = int(sys.argv[1]) if len(sys.argv) > 1 else 2
 
-# dateparse / __init__ 这类不是爬虫，跳过
-SKIP_MODULES = {"__init__", "dateparse"}
+# dateparse / __init__ / jd_detail 不是爬虫，跳过
+SKIP_MODULES = {"__init__", "dateparse", "jd_detail"}
+
+# ── 完整 JD 抓取设置 ──────────────────────────────────────────────────────────
+JD_SOURCES = {"JobsDB", "Recruit", "GovHK"}   # 详情页可抓的平台
+JD_CAP     = 300                              # 每轮最多抓多少条（其余下轮再抓）
+UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
 
 
 def discover_scrapers():
@@ -55,6 +61,46 @@ async def safe_run(name, run_func):
         print(f"  ⚠️  {name} 抓取失败: {ex}")
         traceback.print_exc()
         return name, []
+
+
+async def fetch_full_jds(jobs, today_s):
+    """访问详情页抓取完整 JD；每轮限量，只抓没抓过的（jd_fetched 标记）。"""
+    from scrapers.jd_detail import fetch_jd
+    from playwright.async_api import async_playwright
+
+    todo = [j for j in jobs
+            if j.get("source") in JD_SOURCES
+            and not j.get("full_jd") and not j.get("jd_fetched")]
+    if not todo:
+        print("[run_all] 完整 JD：无待抓条目")
+        return
+    batch = todo[:JD_CAP]
+    print(f"[run_all] 抓取完整 JD：本轮 {len(batch)} 条 / 待抓 {len(todo)} 条…")
+
+    N = 4
+    try:
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch(headless=True)
+            ctx = await browser.new_context(user_agent=UA)
+            pages = [await ctx.new_page() for _ in range(N)]
+
+            async def worker(page, items):
+                for j in items:
+                    try:
+                        jd = await fetch_jd(page, j["url"])
+                    except Exception:
+                        jd = ""
+                    if jd:
+                        j["full_jd"] = jd
+                    j["jd_fetched"] = today_s   # 标记已尝试，避免下轮重复
+
+            await asyncio.gather(*(worker(pages[i], batch[i::N]) for i in range(N)))
+            await browser.close()
+    except Exception as ex:
+        print(f"[run_all] ⚠️  完整 JD 抓取异常: {ex}")
+        return
+    got = sum(1 for j in batch if j.get("full_jd"))
+    print(f"[run_all] ✅ 完整 JD：成功 {got}/{len(batch)} 条")
 
 
 async def main():
@@ -123,6 +169,10 @@ async def main():
         j["effective_date"] = j.get("posted_date") or j.get("first_seen")
 
     merged = list(history.values())
+
+    # ── 抓取完整 JD（限量；配合历史，只抓没抓过的）────────────────────────
+    await fetch_full_jds(merged, today_s)
+
     OUT_FILE.write_text(
         json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8"
     )

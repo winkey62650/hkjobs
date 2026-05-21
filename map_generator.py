@@ -201,7 +201,7 @@ for name, grp in loc_groups.items():
             "location": j.get("location", ""),
             "salary":  sal_txt,
             "sal_num": parse_sal_num(sal_txt),
-            "snippet": j.get("snippet", ""),
+            "snippet": (j.get("full_jd") or j.get("snippet") or "")[:1000],
             "url":     j.get("url", "#"),
             "label":   j.get("label", ""),
             "color":   color,
@@ -727,7 +727,7 @@ function buildCard(j) {{
   const salRow = hasSal
     ? `<div class="jc-sal"><span class="jc-sal-icon">💰</span><span class="jc-sal-txt">${{j.salary}}</span></div>`
     : `<div class="jc-sal"><span class="jc-sal-icon">💰</span><span class="jc-sal-none">薪资面议</span></div>`;
-  const jdEnc = encodeURIComponent((j.snippet || '').substring(0, 500));
+  const jdEnc = encodeURIComponent((j.snippet || '').substring(0, 1000));
   const al = ageLabel(j);
   let dateBadge = '';
   if (al) {{

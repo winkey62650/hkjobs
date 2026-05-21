@@ -1,5 +1,8 @@
 import OpenAI from "openai";
 
+// 推理模型较慢，给足执行时间（Vercel Hobby 上限 60s）
+export const config = { maxDuration: 60 };
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
