@@ -239,6 +239,13 @@ html = f"""<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>秒投 · 香港求职地图</title>
+<meta name="theme-color" content="#16a34a">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="秒投">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
@@ -299,9 +306,34 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
              box-shadow:0 2px 8px rgba(22,163,74,.35)}}
 .resume-btn:hover{{filter:brightness(1.08)}}
 
+/* ── 视图切换 地图/列表 ── */
+.view-toggle{{display:flex;background:#f0fdf4;border:1.5px solid #86efac;
+      border-radius:10px;overflow:hidden;flex-shrink:0}}
+.vt-btn{{padding:7px 13px;font-size:.8rem;font-weight:700;border:none;
+      background:transparent;color:#15803d;cursor:pointer;white-space:nowrap}}
+.vt-btn.on{{background:linear-gradient(135deg,#4ade80,#16a34a);color:#fff}}
+
 /* ── main layout ── */
 .main{{display:flex;flex:1;overflow:hidden}}
 #map{{flex:1;z-index:1}}
+
+/* ── 列表视图 ── */
+#list-view{{flex:1;display:none;flex-direction:column;background:#f0fdf4;overflow:hidden}}
+.list-bar{{display:flex;gap:8px;padding:10px 14px;background:#fff;
+      border-bottom:1px solid #d1fae5;flex-shrink:0}}
+.list-bar input{{flex:1;padding:8px 12px;border:1.5px solid #d1fae5;
+      border-radius:9px;font-size:.85rem;outline:none}}
+.list-bar input:focus{{border-color:#22c55e}}
+.list-sub{{padding:8px 16px 2px;font-size:.78rem;color:#64748b;flex-shrink:0;
+      max-width:680px;width:100%;margin:0 auto}}
+.list-sub strong{{color:#16a34a}}
+.list-body{{flex:1;overflow-y:auto;padding:6px 12px 20px;
+      display:flex;flex-direction:column;gap:9px;
+      max-width:680px;width:100%;margin:0 auto}}
+.more-btn{{margin:10px auto 0;padding:11px 26px;
+      background:#fff;border:1.5px solid #86efac;border-radius:11px;
+      color:#15803d;font-weight:700;font-size:.84rem;cursor:pointer}}
+.more-btn:hover{{background:#dcfce7}}
 
 /* ── sidebar ── */
 .side{{width:390px;background:#fff;display:flex;flex-direction:column;
@@ -432,6 +464,10 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
   </div>
 
   <div class="hdr-right">
+    <div class="view-toggle" id="view-toggle">
+      <button class="vt-btn on" data-view="map">🗺 地图</button>
+      <button class="vt-btn" data-view="list">📋 列表</button>
+    </div>
     <div class="cat-dd" id="cat-dd">
       <button class="cat-btn" id="cat-btn">
         <span id="cat-btn-label">🏷 全部分类</span>
@@ -455,6 +491,15 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
 <div class="main">
   <div id="map"></div>
 
+  <div id="list-view">
+    <div class="list-bar">
+      <input id="list-q" type="text" placeholder="搜索职位 / 公司…">
+      <button class="sort-btn" id="list-sort" title="切换排序">💰 薪资</button>
+    </div>
+    <div class="list-sub" id="list-count"></div>
+    <div class="list-body" id="list-body"></div>
+  </div>
+
   <div class="side closed" id="side">
     <div class="sheet-handle" id="sheet-handle"></div>
     <div class="side-hdr">
@@ -472,6 +517,8 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
 
 <script>
 const LOCATIONS = {js_data};
+const ALL_JOBS  = LOCATIONS.flatMap(l => l.jobs);
+let currentView = 'map';
 
 const isMobile = window.matchMedia('(max-width:768px)').matches;
 const map = L.map('map', {{
@@ -595,51 +642,48 @@ function renderJobs(jobs) {{
     (activeCategory !== 'all' ? `（${{activeCategory}}）` : '');
 
   const list = document.getElementById('job-list');
-  if (!filtered.length) {{
-    list.innerHTML = '<div class="empty">该地区暂无此类职位</div>';
-    return;
-  }}
-
-  list.innerHTML = filtered.map((j, i) => {{
-    const hasSal = j.salary && j.salary !== '薪资面议';
-    const salRow = hasSal
-      ? `<div class="jc-sal"><span class="jc-sal-icon">💰</span><span class="jc-sal-txt">${{j.salary}}</span></div>`
-      : `<div class="jc-sal"><span class="jc-sal-icon">💰</span><span class="jc-sal-none">薪资面议</span></div>`;
-    const jdEnc  = encodeURIComponent((j.snippet||'').substring(0,500));
-    return `
-    <div class="jcard">
-      <div class="jc-body">
-        <div class="jc-top">
-          <a class="jc-title" href="${{j.url}}" target="_blank">${{j.title}}</a>
-          <span class="jc-src" style="background:${{j.src_color}}">${{j.source}}</span>
-        </div>
-        <div class="jc-co">${{j.company}}</div>
-        ${{salRow}}
-        <div class="jc-tags">
-          <span class="badge b-cat" style="background:${{j.color}}">${{j.label}}</span>
-          <span class="badge b-loc">📍 ${{j.location}}</span>
-          ${{(() => {{ const al = ageLabel(j); if (!al) return j.posted ? `<span class="badge b-dat">🕐 ${{j.posted}}</span>` : ''; const fresh = jobAgeDays(j) <= 2; return `<span class="badge" style="background:${{fresh?'#dcfce7':'#f1f5f9'}};color:${{fresh?'#166534':'#64748b'}}">🕐 ${{al}}</span>`; }})()}}
-        </div>
-        <div class="jd-tabs">
-          <div class="jd-tab on" onclick="switchTab(this,'${{i}}-en')">📄 JD</div>
-        </div>
-        <div class="jd-panel on" id="p-${{i}}-en">${{j.snippet || '<em>暂无描述</em>'}}</div>
-      </div>
-      <div class="jc-foot">
-        <a class="btn btn-apply" href="${{j.url}}" target="_blank">查看完整JD →</a>
-        ${{jdEnc ? `<a class="btn btn-cv" href="resume.html?jd=${{jdEnc}}" target="_blank">✨ 匹配简历</a>` : ''}}
-      </div>
-    </div>`;
-  }}).join('');
+  list.innerHTML = filtered.length
+    ? filtered.map(buildCard).join('')
+    : '<div class="empty">该地区暂无此类职位</div>';
 }}
 
-function switchTab(tab, id) {{
-  const card = tab.closest('.jcard');
-  card.querySelectorAll('.jd-tab').forEach(t => t.classList.remove('on'));
-  card.querySelectorAll('.jd-panel').forEach(p => p.classList.remove('on'));
-  tab.classList.add('on');
-  const panel = document.getElementById('p-' + id);
-  if (panel) panel.classList.add('on');
+// ── 职位卡片（地图侧栏 + 列表视图共用）───────────────────────────────────────
+function buildCard(j) {{
+  const hasSal = j.salary && j.salary !== '薪资面议';
+  const salRow = hasSal
+    ? `<div class="jc-sal"><span class="jc-sal-icon">💰</span><span class="jc-sal-txt">${{j.salary}}</span></div>`
+    : `<div class="jc-sal"><span class="jc-sal-icon">💰</span><span class="jc-sal-none">薪资面议</span></div>`;
+  const jdEnc = encodeURIComponent((j.snippet || '').substring(0, 500));
+  const al = ageLabel(j);
+  let dateBadge = '';
+  if (al) {{
+    const fresh = jobAgeDays(j) <= 2;
+    dateBadge = `<span class="badge" style="background:${{fresh?'#dcfce7':'#f1f5f9'}};`
+              + `color:${{fresh?'#166534':'#64748b'}}">🕐 ${{al}}</span>`;
+  }} else if (j.posted) {{
+    dateBadge = `<span class="badge b-dat">🕐 ${{j.posted}}</span>`;
+  }}
+  return `
+  <div class="jcard">
+    <div class="jc-body">
+      <div class="jc-top">
+        <a class="jc-title" href="${{j.url}}" target="_blank">${{j.title}}</a>
+        <span class="jc-src" style="background:${{j.src_color}}">${{j.source}}</span>
+      </div>
+      <div class="jc-co">${{j.company}}</div>
+      ${{salRow}}
+      <div class="jc-tags">
+        <span class="badge b-cat" style="background:${{j.color}}">${{j.label}}</span>
+        <span class="badge b-loc">📍 ${{j.location || '不限地区'}}</span>
+        ${{dateBadge}}
+      </div>
+      ${{j.snippet ? `<div class="jd-panel on">${{j.snippet}}</div>` : ''}}
+    </div>
+    <div class="jc-foot">
+      <a class="btn btn-apply" href="${{j.url}}" target="_blank">查看完整JD →</a>
+      ${{jdEnc ? `<a class="btn btn-cv" href="resume.html?jd=${{jdEnc}}" target="_blank">✨ 匹配简历</a>` : ''}}
+    </div>
+  </div>`;
 }}
 
 // ── 分类过滤 ──────────────────────────────────────────────────────────────────
@@ -664,6 +708,7 @@ document.getElementById('cat-panel').addEventListener('click', e => {{
   if (!document.getElementById('side').classList.contains('closed')) {{
     renderJobs(currentJobs);
   }}
+  if (currentView === 'list') renderList();
 }});
 
 // ── 日期过滤 ──────────────────────────────────────────────────────────────────
@@ -677,7 +722,70 @@ document.getElementById('date-filters').addEventListener('click', e => {{
   if (!document.getElementById('side').classList.contains('closed')) {{
     renderJobs(currentJobs);
   }}
+  if (currentView === 'list') renderList();
 }});
+
+// ── 列表视图 ──────────────────────────────────────────────────────────────────
+let listLimit = 80;
+function getListJobs() {{
+  let arr = ALL_JOBS.filter(j => catOk(j) && dateOk(j));
+  const q = document.getElementById('list-q').value.trim().toLowerCase();
+  if (q) arr = arr.filter(j => (j.title + j.company + j.snippet).toLowerCase().includes(q));
+  arr = arr.slice();
+  arr.sort(sortBySalary
+    ? (a, b) => b.sal_num - a.sal_num
+    : (a, b) => jobAgeDays(a) - jobAgeDays(b));
+  return arr;
+}}
+function renderList(resetLimit) {{
+  if (resetLimit !== false) listLimit = 80;
+  const arr = getListJobs();
+  const dLabel = activeDays === 0 ? '全部时间' : `近${{activeDays}}天`;
+  document.getElementById('list-count').innerHTML =
+    `共 <strong>${{arr.length}}</strong> 个职位 · ${{dLabel}}` +
+    (activeCategory !== 'all' ? ` · ${{activeCategory}}` : '');
+  const body = document.getElementById('list-body');
+  if (!arr.length) {{
+    body.innerHTML = '<div class="empty">没有符合条件的职位</div>';
+    return;
+  }}
+  body.innerHTML = arr.slice(0, listLimit).map(buildCard).join('');
+  if (arr.length > listLimit) {{
+    const btn = document.createElement('button');
+    btn.className = 'more-btn';
+    btn.textContent = `加载更多（还有 ${{arr.length - listLimit}} 个）`;
+    btn.onclick = () => {{ listLimit += 120; renderList(false); }};
+    body.appendChild(btn);
+  }}
+}}
+document.getElementById('list-q').addEventListener('input', () => renderList());
+document.getElementById('list-sort').addEventListener('click', () => {{
+  sortBySalary = !sortBySalary;
+  document.getElementById('list-sort').textContent = sortBySalary ? '🕐 最新' : '💰 薪资';
+  renderList();
+}});
+
+// ── 视图切换 地图/列表 ────────────────────────────────────────────────────────
+document.getElementById('view-toggle').addEventListener('click', e => {{
+  const b = e.target.closest('.vt-btn');
+  if (!b) return;
+  currentView = b.dataset.view;
+  document.querySelectorAll('.vt-btn').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  const listMode = currentView === 'list';
+  document.getElementById('map').style.display = listMode ? 'none' : '';
+  document.getElementById('list-view').style.display = listMode ? 'flex' : 'none';
+  closeSidebar();
+  if (listMode) renderList();
+  else setTimeout(() => map.invalidateSize(), 60);
+}});
+
+// ── PWA Service Worker ────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {{
+  window.addEventListener('load', () => {{
+    navigator.serviceWorker.register('/sw.js').catch(() => {{}});
+  }});
+}}
 </script>
 </body></html>"""
 
