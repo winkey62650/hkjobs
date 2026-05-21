@@ -188,6 +188,41 @@ textarea{resize:vertical;min-height:58px}
   .hbtn{padding:7px 10px;font-size:.74rem}
 }
 
+/* ── 账号 ── */
+.acct-btn{padding:7px 12px;border-radius:8px;font-size:.78rem;font-weight:700;
+  cursor:pointer;border:1.5px solid #86efac;background:#f0fdf4;color:#15803d;
+  white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+.acct-btn:hover{background:#dcfce7}
+.acct-btn.in{background:linear-gradient(135deg,#4ade80,#16a34a);color:#fff;border-color:transparent}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:3000;display:none;
+  align-items:center;justify-content:center;padding:20px}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:14px;width:380px;max-width:100%;
+  box-shadow:0 16px 48px rgba(0,0,0,.3);overflow:hidden}
+.modal-hd{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;
+  padding:13px 18px;display:flex;align-items:center;font-size:1rem;font-weight:800}
+.modal-hd .x{margin-left:auto;cursor:pointer;font-size:1.2rem;opacity:.85}
+.modal-bd{padding:18px}
+.modal-bd p{font-size:.81rem;color:#475569;line-height:1.6;margin-bottom:9px}
+.m-btn{width:100%;padding:11px;border:none;border-radius:9px;font-size:.88rem;
+  font-weight:800;cursor:pointer;margin-bottom:9px}
+.m-btn-primary{background:linear-gradient(135deg,#4ade80,#16a34a);color:#fff}
+.m-btn-ghost{background:#f0fdf4;color:#15803d;border:1.5px solid #86efac}
+.m-input{width:100%;padding:9px 11px;border:1.5px solid #d1fae5;border-radius:8px;
+  font-size:.9rem;outline:none;margin-bottom:9px;font-family:inherit}
+.m-input:focus{border-color:#22c55e}
+.m-divider{text-align:center;font-size:.73rem;color:#94a3b8;margin:4px 0 12px}
+.m-code{background:#f0fdf4;border:1.5px dashed #86efac;border-radius:8px;padding:13px;
+  text-align:center;font-size:1.2rem;font-weight:800;color:#15803d;letter-spacing:1px;
+  margin-bottom:10px;user-select:all;word-break:break-all}
+.prof-row{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:9px;
+  border:1.5px solid #e2e8f0;margin-bottom:8px;cursor:pointer}
+.prof-row:hover{border-color:#86efac;background:#f0fdf4}
+.prof-row.active{border-color:#16a34a;background:#dcfce7}
+.prof-row .nm{font-weight:700;font-size:.88rem;color:#1e293b;flex:1;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prof-row .tag{font-size:.68rem;font-weight:700;color:#16a34a;flex-shrink:0}
+
 @media print{
   body{background:#fff;overflow:visible;height:auto;display:block}
   .hdr,.fp,.overlay,.jd-panel{display:none!important}
@@ -209,6 +244,7 @@ textarea{resize:vertical;min-height:58px}
   </div>
   <div class="hdr-right">
     <span class="save-status" id="save-status">✓ 自动保存</span>
+    <button class="acct-btn" id="acct-btn" onclick="openAcct()">👤 登录</button>
     <div class="view-toggle" id="rv-toggle">
       <button class="vt-btn on" data-rv="edit">✏️ 编辑</button>
       <button class="vt-btn" data-rv="preview">👁 预览</button>
@@ -387,6 +423,14 @@ textarea{resize:vertical;min-height:58px}
   </div>
 </div>
 
+<div class="modal-bg" id="acct-modal">
+  <div class="modal">
+    <div class="modal-hd"><span id="acct-modal-title">账号</span>
+      <span class="x" onclick="closeAcct()">✕</span></div>
+    <div class="modal-bd" id="acct-modal-bd"></div>
+  </div>
+</div>
+
 <script>
 const STORE_KEY = 'miaotou-resume-v2';
 const FIELD_IDS = ['f-name-en','f-name-zh','f-pos','f-phone','f-email','f-addr',
@@ -399,9 +443,19 @@ function loadPhoto(inp){
   const f = inp.files[0]; if(!f) return;
   const r = new FileReader();
   r.onload = e => {
-    photoDataUrl = e.target.result;
-    document.getElementById('photo-prev').innerHTML = `<img src="${photoDataUrl}">`;
-    render();
+    const img = new Image();
+    img.onload = () => {
+      // 缩到最长边 450px，存成 JPEG —— 控制体积，方便云端同步
+      const max = 450, sc = Math.min(1, max / Math.max(img.width, img.height));
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * sc);
+      cv.height = Math.round(img.height * sc);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      photoDataUrl = cv.toDataURL('image/jpeg', 0.85);
+      document.getElementById('photo-prev').innerHTML = `<img src="${photoDataUrl}">`;
+      render();
+    };
+    img.src = e.target.result;
   };
   r.readAsDataURL(f);
 }
@@ -618,12 +672,15 @@ function saveState(){
   saveTimer=setTimeout(()=>{
     try{
       localStorage.setItem(STORE_KEY, JSON.stringify(collectState()));
-      const st=document.getElementById('save-status');
-      st.textContent='✓ 已保存 '+new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'});
+      if(!acct){
+        document.getElementById('save-status').textContent=
+          '✓ 已保存 '+new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'});
+      }
     }catch(err){
       document.getElementById('save-status').textContent='⚠ 保存失败';
     }
   },600);
+  cloudSave();   // 已登录则同步到云端
 }
 function restoreState(s){
   cvTemplate=s.template||'classic';
@@ -884,20 +941,174 @@ async function exportPDF(){
   }
 }
 
+// ── 账号系统 ─────────────────────────────────────────────────────────────────
+const ACCT_KEY = 'miaotou-account';
+let acctId = null, acct = null, activeIdx = 0, cloudTimer;
+
+async function apiAccount(payload){
+  const r = await fetch('/api/account', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)
+  });
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error || ('HTTP '+r.status));
+  return d;
+}
+function profileName(i){
+  return (acct && acct.profiles[i] && acct.profiles[i].name) || ('名字'+(i+1));
+}
+function curName(){ return v('f-name-en') || v('f-name-zh') || ('名字'+(activeIdx+1)); }
+function updateAcctBtn(){
+  const btn=document.getElementById('acct-btn');
+  if(acct){ btn.textContent='👤 '+profileName(activeIdx); btn.classList.add('in'); }
+  else { btn.textContent='👤 登录'; btn.classList.remove('in'); }
+}
+function openAcct(){ renderAcctModal(); document.getElementById('acct-modal').classList.add('open'); }
+function closeAcct(){ document.getElementById('acct-modal').classList.remove('open'); }
+
+function renderAcctModal(){
+  const bd=document.getElementById('acct-modal-bd');
+  const title=document.getElementById('acct-modal-title');
+  if(!acct){
+    title.textContent='登录 / 新建账号';
+    bd.innerHTML=
+      '<p>账号用来在云端保存简历资料 —— 换设备时输入账号码就能取回。</p>'+
+      '<button class="m-btn m-btn-primary" onclick="doCreate()">✨ 新建账号</button>'+
+      '<div class="m-divider">— 或，已有账号码 —</div>'+
+      '<input class="m-input" id="acct-code-in" placeholder="输入账号码，如 mt-xxxxxxxx">'+
+      '<button class="m-btn m-btn-ghost" onclick="doLogin()">登录</button>'+
+      '<div id="acct-msg" style="font-size:.8rem;color:#dc2626;text-align:center"></div>';
+  } else {
+    title.textContent='我的账号';
+    let rows='';
+    for(let i=0;i<2;i++){
+      const p=acct.profiles[i];
+      if(p){
+        rows+='<div class="prof-row '+(i===activeIdx?'active':'')+'" onclick="switchProfile('+i+')">'+
+          '<span class="nm">'+e(p.name||('名字'+(i+1)))+'</span><span class="tag" style="'+
+          (i===activeIdx?'':'color:#94a3b8')+'">'+(i===activeIdx?'当前':'切换')+'</span></div>';
+      } else {
+        rows+='<div class="prof-row" onclick="newProfile('+i+')">'+
+          '<span class="nm" style="color:#94a3b8">＋ 新建名字 '+(i+1)+'</span></div>';
+      }
+    }
+    bd.innerHTML=
+      '<p>你的账号码（请保存好，换设备用它登录）：</p>'+
+      '<div class="m-code">'+e(acctId)+'</div>'+
+      '<p>名字（最多 2 个，点击切换）：</p>'+rows+
+      '<button class="m-btn m-btn-ghost" style="margin-top:4px" onclick="doLogout()">退出登录</button>';
+  }
+}
+
+async function doCreate(){
+  const msg=document.getElementById('acct-msg');
+  try{
+    const d=await apiAccount({action:'create'});
+    acctId=d.id; acct=d.account;
+    acct.profiles=[{name:curName(), resume:collectState()}];   // 当前表单存为名字1
+    activeIdx=0;
+    await apiAccount({action:'save', id:acctId, profiles:acct.profiles});
+    localStorage.setItem(ACCT_KEY, acctId);
+    updateAcctBtn(); renderAcctModal();
+  }catch(err){ if(msg) msg.textContent='出错：'+err.message; }
+}
+async function doLogin(){
+  const msg=document.getElementById('acct-msg');
+  const code=(document.getElementById('acct-code-in').value||'').trim();
+  if(!code){ if(msg) msg.textContent='请输入账号码'; return; }
+  try{
+    const d=await apiAccount({action:'load', id:code});
+    acctId=d.id; acct=d.account; activeIdx=0;
+    localStorage.setItem(ACCT_KEY, acctId);
+    clearForm();
+    if(acct.profiles[0] && acct.profiles[0].resume) restoreState(acct.profiles[0].resume);
+    else updateTplBtn();
+    render();
+    updateAcctBtn(); renderAcctModal();
+  }catch(err){ if(msg) msg.textContent=err.message; }
+}
+function doLogout(){
+  if(!confirm('退出登录？本地仍会保留当前简历。')) return;
+  acctId=null; acct=null; activeIdx=0;
+  localStorage.removeItem(ACCT_KEY);
+  updateAcctBtn(); closeAcct();
+}
+function switchProfile(i){
+  if(i===activeIdx){ closeAcct(); return; }
+  acct.profiles[activeIdx]={name:curName(), resume:collectState()};
+  activeIdx=i;
+  clearForm();
+  if(acct.profiles[i].resume) restoreState(acct.profiles[i].resume);
+  else updateTplBtn();
+  render();
+  updateAcctBtn(); renderAcctModal();
+  cloudSaveNow();
+}
+function newProfile(i){
+  acct.profiles[activeIdx]={name:curName(), resume:collectState()};
+  acct.profiles[i]={name:'名字'+(i+1), resume:null};
+  activeIdx=i;
+  clearForm(); updateTplBtn(); render();
+  updateAcctBtn(); renderAcctModal();
+  cloudSaveNow();
+}
+function cloudSave(){
+  if(!acct) return;
+  clearTimeout(cloudTimer);
+  cloudTimer=setTimeout(cloudSaveNow, 2500);
+}
+async function cloudSaveNow(){
+  if(!acct) return;
+  acct.profiles[activeIdx]={name:curName(), resume:collectState()};
+  const st=document.getElementById('save-status');
+  try{
+    await apiAccount({action:'save', id:acctId, profiles:acct.profiles});
+    st.textContent='☁ 已同步 '+new Date().toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'});
+  }catch(err){ st.textContent='⚠ 云端同步失败'; }
+}
+document.getElementById('acct-modal').addEventListener('click', ev=>{
+  if(ev.target.id==='acct-modal') closeAcct();
+});
+
+// ── 表单清空 / 默认值 ────────────────────────────────────────────────────────
+function clearForm(){
+  FIELD_IDS.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['edu-list','award-list','exp-list','extra-list'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.innerHTML='';
+  });
+  photoDataUrl='';
+  document.getElementById('photo-prev').innerHTML='<span>点击上传<br>相片</span>';
+  cvTemplate='classic';
+}
+function seedDefaults(){
+  addEdu({deg:'Master of Arts in Philosophy',sch:'',per:'Sep 20XX – Jul 20XX',
+          det:'Thesis: [题目]\nRelevant modules: Logic, Ethics, Political Philosophy'});
+  addEdu({deg:'Bachelor of Arts in English',sch:'',per:'Sep 20XX – Jul 20XX',
+          det:'Major: English Language & Literature\nRelevant modules: Academic Writing, Linguistics'});
+  updateTplBtn();
+}
+
 // ── 初始化 ───────────────────────────────────────────────────────────────────
-window.addEventListener('load',()=>{
+window.addEventListener('load', async ()=>{
+  const savedAcct=localStorage.getItem(ACCT_KEY);
+  if(savedAcct){
+    try{
+      const d=await apiAccount({action:'load', id:savedAcct});
+      acctId=d.id; acct=d.account; activeIdx=0;
+      updateAcctBtn();
+      if(acct.profiles[0] && acct.profiles[0].resume){
+        restoreState(acct.profiles[0].resume);
+        render();
+        return;
+      }
+    }catch(err){
+      localStorage.removeItem(ACCT_KEY);   // 账号失效，回退本地
+    }
+  }
   const saved=localStorage.getItem(STORE_KEY);
   let restored=false;
-  if(saved){
-    try{ restoreState(JSON.parse(saved)); restored=true; }catch(err){}
-  }
-  if(!restored){
-    addEdu({deg:'Master of Arts in Philosophy',sch:'',per:'Sep 20XX – Jul 20XX',
-            det:'Thesis: [题目]\nRelevant modules: Logic, Ethics, Political Philosophy'});
-    addEdu({deg:'Bachelor of Arts in English',sch:'',per:'Sep 20XX – Jul 20XX',
-            det:'Major: English Language & Literature\nRelevant modules: Academic Writing, Linguistics'});
-    updateTplBtn();
-  }
+  if(saved){ try{ restoreState(JSON.parse(saved)); restored=true; }catch(err){} }
+  if(!restored) seedDefaults();
   render();
 });
 </script>
