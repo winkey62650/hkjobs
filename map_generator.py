@@ -348,8 +348,10 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
            background:#f0fdf4}}
 .side-hdr h2{{font-size:.98rem;color:#15803d;font-weight:800}}
 .side-hdr .sub{{font-size:.78rem;color:#64748b;margin-top:3px}}
-.side-close{{float:right;cursor:pointer;font-size:1.15rem;color:#94a3b8;line-height:1}}
-.side-close:hover{{color:#16a34a}}
+.side-close{{float:right;cursor:pointer;width:30px;height:30px;border-radius:50%;
+             background:#e2e8f0;color:#475569;font-size:1rem;font-weight:800;
+             text-align:center;line-height:30px}}
+.side-close:hover{{background:#fecaca;color:#dc2626}}
 .side-search{{padding:9px 14px;border-bottom:1px solid #d1fae5;flex-shrink:0;
               display:flex;gap:6px;align-items:center}}
 .side-search input{{flex:1;padding:7px 11px;border:1.5px solid #d1fae5;
@@ -446,9 +448,12 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
          box-shadow:0 -8px 30px rgba(0,0,0,.22);
          transform:translateY(0);transition:transform .28s ease}}
   .side.closed{{width:auto;transform:translateY(101%)}}
-  .sheet-handle{{display:block;width:42px;height:4px;border-radius:3px;
-                 background:#cbd5e1;margin:8px auto 0;flex-shrink:0;cursor:pointer}}
-  .side-hdr{{padding:7px 15px 9px}}
+  .sheet-handle{{display:block;width:46px;height:5px;border-radius:3px;
+                 background:#86efac;margin:9px auto 2px;flex-shrink:0;cursor:pointer}}
+  .side-hdr{{padding:6px 14px 10px}}
+  .side-close{{width:40px;height:40px;line-height:40px;font-size:1.3rem;
+               background:#dcfce7;color:#15803d}}
+  .side-close:active{{background:#bbf7d0}}
 }}
 </style>
 </head>
@@ -623,6 +628,8 @@ function closeSidebar() {{
 
 document.getElementById('side-close').addEventListener('click', closeSidebar);
 document.getElementById('sheet-handle').addEventListener('click', closeSidebar);
+// 点地图空白处也能关闭职位列表
+map.on('click', closeSidebar);
 
 document.getElementById('side-q').addEventListener('input', e => {{
   const q = e.target.value.trim().toLowerCase();
