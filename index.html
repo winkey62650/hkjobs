@@ -3,41 +3,66 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>HK Jobs Map — JobsDB + Indeed</title>
+<title>秒投 · 香港求职地图</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-     display:flex;flex-direction:column;height:100vh;overflow:hidden;background:#f1f5f9}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;
+     display:flex;flex-direction:column;height:100vh;overflow:hidden;background:#f0fdf4}
 
 /* ── header ── */
-.hdr{background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;
-      padding:10px 16px;display:flex;align-items:center;gap:14px;flex-shrink:0;z-index:1000;
+.hdr{background:#fff;border-bottom:1px solid #d1fae5;
+      box-shadow:0 1px 10px rgba(16,163,74,.07);
+      padding:10px 18px;display:flex;align-items:center;gap:14px;flex-shrink:0;z-index:1000;
       flex-wrap:wrap}
 .hdr-left{display:flex;flex-direction:column;gap:3px}
-.hdr h1{font-size:1.1rem;white-space:nowrap}
-.hdr-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.hdr-info{font-size:.78rem;opacity:.75}
-.hdr-filters{display:flex;gap:5px;flex-wrap:wrap;margin-left:auto}
-.ftag{padding:3px 9px;border-radius:14px;border:1.5px solid rgba(255,255,255,.5);
-       font-size:.72rem;font-weight:600;cursor:pointer;color:rgba(255,255,255,.75);
-       transition:.15s;white-space:nowrap}
-.ftag.on{background:rgba(255,255,255,.2);color:#fff;border-color:#fff}
-.ftag:hover{border-color:#fff;color:#fff}
-/* 日期筛选 */
-.date-filters{display:flex;gap:5px;align-items:center}
-.dtag{padding:3px 10px;border-radius:14px;font-size:.72rem;font-weight:700;
+.brand{display:flex;align-items:center;gap:8px}
+.brand-logo{width:32px;height:32px;border-radius:10px;
+      background:linear-gradient(135deg,#4ade80,#16a34a);
+      display:flex;align-items:center;justify-content:center;font-size:1.05rem;
+      box-shadow:0 3px 8px rgba(22,163,74,.4)}
+.hdr h1{font-size:1.35rem;font-weight:800;color:#15803d;letter-spacing:2px}
+.brand .slogan{font-size:.7rem;color:#22c55e;font-weight:700;letter-spacing:.5px;
+      padding-left:4px;border-left:2px solid #bbf7d0;margin-left:2px}
+.hdr-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:1px}
+.hdr-info{font-size:.75rem;color:#64748b}
+.hdr-info strong{color:#16a34a}
+.hdr-right{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-left:auto}
+
+/* ── 分类下拉 ── */
+.cat-dd{position:relative}
+.cat-btn{display:flex;align-items:center;gap:7px;padding:8px 14px;
+      background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;
+      font-size:.83rem;font-weight:700;color:#15803d;cursor:pointer;white-space:nowrap}
+.cat-btn:hover{background:#dcfce7;border-color:#22c55e}
+.cat-btn .arrow{font-size:.58rem;transition:transform .18s}
+.cat-dd.open .cat-btn .arrow{transform:rotate(180deg)}
+.cat-panel{position:absolute;top:calc(100% + 7px);left:0;z-index:2000;
+      background:#fff;border:1px solid #d1fae5;border-radius:13px;
+      box-shadow:0 10px 32px rgba(16,163,74,.2);padding:7px;
+      display:none;grid-template-columns:1fr 1fr;gap:2px;width:292px}
+.cat-dd.open .cat-panel{display:grid}
+.cat-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;
+      font-size:.8rem;font-weight:600;color:#475569;cursor:pointer;transition:.1s}
+.cat-item:hover{background:#f0fdf4}
+.cat-item.on{background:#dcfce7;color:#15803d;font-weight:700}
+.cat-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+/* ── 日期筛选 ── */
+.date-filters{display:flex;gap:4px;align-items:center}
+.date-filters .lbl{font-size:.74rem;color:#64748b;font-weight:700;margin-right:2px}
+.dtag{padding:6px 12px;border-radius:9px;font-size:.77rem;font-weight:700;
        cursor:pointer;transition:.15s;white-space:nowrap;
-       background:rgba(255,255,255,.12);color:rgba(255,255,255,.7);
-       border:1.5px solid transparent}
-.dtag.on{background:#fbbf24;color:#1a1a2e;border-color:#fbbf24}
-.dtag:hover{color:#fff}
-.dtag.on:hover{color:#1a1a2e}
-.resume-btn{padding:6px 13px;background:rgba(255,255,255,.15);color:#fff;
-             border-radius:6px;font-size:.8rem;font-weight:600;text-decoration:none;
-             border:1.5px solid rgba(255,255,255,.35);white-space:nowrap}
-.resume-btn:hover{background:rgba(255,255,255,.25)}
+       background:#f0fdf4;color:#15803d;border:1.5px solid transparent}
+.dtag:hover{background:#dcfce7}
+.dtag.on{background:linear-gradient(135deg,#4ade80,#16a34a);color:#fff;
+          box-shadow:0 2px 7px rgba(22,163,74,.4)}
+.resume-btn{padding:8px 15px;background:linear-gradient(135deg,#4ade80,#16a34a);
+             color:#fff;border-radius:10px;font-size:.81rem;font-weight:700;
+             text-decoration:none;white-space:nowrap;
+             box-shadow:0 2px 8px rgba(22,163,74,.35)}
+.resume-btn:hover{filter:brightness(1.08)}
 
 /* ── main layout ── */
 .main{display:flex;flex:1;overflow:hidden}
@@ -45,74 +70,78 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
 
 /* ── sidebar ── */
 .side{width:390px;background:#fff;display:flex;flex-direction:column;
-       border-left:1px solid #e2e8f0;overflow:hidden;transition:width .25s;flex-shrink:0}
+       border-left:1px solid #d1fae5;overflow:hidden;transition:width .25s;flex-shrink:0}
 .side.closed{width:0}
-.side-hdr{padding:12px 14px 8px;border-bottom:1px solid #e2e8f0;flex-shrink:0}
-.side-hdr h2{font-size:.95rem;color:#1e293b}
+.side-hdr{padding:13px 15px 9px;border-bottom:1px solid #d1fae5;flex-shrink:0;
+           background:#f0fdf4}
+.side-hdr h2{font-size:.98rem;color:#15803d;font-weight:800}
 .side-hdr .sub{font-size:.78rem;color:#64748b;margin-top:3px}
-.side-close{float:right;cursor:pointer;font-size:1.1rem;color:#94a3b8;line-height:1}
-.side-close:hover{color:#e60028}
-.side-search{padding:8px 14px;border-bottom:1px solid #e2e8f0;flex-shrink:0;
+.side-close{float:right;cursor:pointer;font-size:1.15rem;color:#94a3b8;line-height:1}
+.side-close:hover{color:#16a34a}
+.side-search{padding:9px 14px;border-bottom:1px solid #d1fae5;flex-shrink:0;
               display:flex;gap:6px;align-items:center}
-.side-search input{flex:1;padding:6px 10px;border:1px solid #cbd5e1;
-                    border-radius:6px;font-size:.83rem;outline:none}
-.side-search input:focus{border-color:#1a1a2e}
-.sort-btn{padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;
-           font-size:.75rem;color:#475569;cursor:pointer;white-space:nowrap;background:#fff}
-.sort-btn:hover{background:#f8fafc}
-.job-list{flex:1;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:8px}
+.side-search input{flex:1;padding:7px 11px;border:1.5px solid #d1fae5;
+                    border-radius:8px;font-size:.83rem;outline:none}
+.side-search input:focus{border-color:#22c55e}
+.sort-btn{padding:6px 9px;border:1.5px solid #d1fae5;border-radius:8px;
+           font-size:.75rem;color:#15803d;font-weight:700;cursor:pointer;
+           white-space:nowrap;background:#fff}
+.sort-btn:hover{background:#f0fdf4;border-color:#22c55e}
+.job-list{flex:1;overflow-y:auto;padding:9px 11px;display:flex;flex-direction:column;gap:9px}
 
 /* ── job card ── */
-.jcard{border-radius:8px;border:1px solid #e2e8f0;border-left:4px solid #e2e8f0;
-        transition:box-shadow .15s;background:#fff}
-.jcard:hover{box-shadow:0 3px 12px rgba(0,0,0,.1)}
-.jc-body{padding:10px 12px 0}
+.jcard{border-radius:11px;border:1px solid #e2e8f0;border-left:4px solid #86efac;
+        transition:.15s;background:#fff}
+.jcard:hover{box-shadow:0 4px 16px rgba(16,163,74,.14);border-left-color:#16a34a}
+.jc-body{padding:11px 13px 0}
 .jc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:3px}
-.jc-title{font-size:.87rem;font-weight:700;color:#1a1a2e;text-decoration:none;line-height:1.35;flex:1}
-.jc-title:hover{color:#e60028;text-decoration:underline}
-.jc-src{font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:3px;
+.jc-title{font-size:.88rem;font-weight:700;color:#1e293b;text-decoration:none;line-height:1.35;flex:1}
+.jc-title:hover{color:#16a34a;text-decoration:underline}
+.jc-src{font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:4px;
          color:#fff;flex-shrink:0;align-self:flex-start;margin-top:2px}
 .jc-co{font-size:.8rem;font-weight:600;color:#475569;margin-bottom:7px}
-.jc-sal{display:flex;align-items:center;gap:6px;padding:5px 9px;
-         background:#f0fdf4;border-radius:5px;margin-bottom:7px}
+.jc-sal{display:flex;align-items:center;gap:6px;padding:6px 10px;
+         background:#f0fdf4;border-radius:7px;margin-bottom:7px}
 .jc-sal-icon{font-size:.85rem}
-.jc-sal-txt{font-size:.85rem;font-weight:700;color:#166534}
+.jc-sal-txt{font-size:.85rem;font-weight:800;color:#15803d}
 .jc-sal-none{font-size:.8rem;color:#94a3b8;font-style:italic}
-.jc-tags{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:7px}
-.badge{border-radius:4px;padding:2px 6px;font-weight:600;font-size:.72rem}
+.jc-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:7px}
+.badge{border-radius:5px;padding:2px 7px;font-weight:600;font-size:.72rem}
 .b-cat{color:#fff}
-.b-loc{background:#dbeafe;color:#1e40af}
+.b-loc{background:#dcfce7;color:#15803d}
 .b-dat{background:#f1f5f9;color:#64748b;font-weight:400}
-.jd-tabs{display:flex;border-top:1px solid #e2e8f0;margin-top:2px}
-.jd-tab{flex:1;padding:5px 0;font-size:.72rem;font-weight:600;text-align:center;
+.jd-tabs{display:flex;border-top:1px solid #f0fdf4;margin-top:2px}
+.jd-tab{flex:1;padding:6px 0;font-size:.72rem;font-weight:600;text-align:center;
          cursor:pointer;color:#94a3b8;background:#f8fafc;
          border-bottom:2px solid transparent;transition:.1s;user-select:none}
-.jd-tab:hover{color:#1a1a2e}
-.jd-tab.on{color:#1a1a2e;border-bottom-color:#1a1a2e;background:#fff}
-.jd-panel{padding:8px 12px;font-size:.78rem;color:#475569;line-height:1.6;
+.jd-tab:hover{color:#16a34a}
+.jd-tab.on{color:#16a34a;border-bottom-color:#16a34a;background:#fff}
+.jd-panel{padding:9px 13px;font-size:.78rem;color:#475569;line-height:1.6;
            display:none;max-height:90px;overflow-y:auto;background:#fff}
 .jd-panel.on{display:block}
 .jd-panel em{color:#b0bec5;font-style:italic}
-.jc-foot{padding:6px 12px 10px;display:flex;justify-content:flex-end;gap:5px;
-          border-top:1px solid #f1f5f9}
-.btn{display:inline-block;padding:5px 12px;border-radius:5px;text-decoration:none;
-      font-size:.74rem;font-weight:600;color:#fff}
-.btn-apply{background:#e60028}
-.btn-apply:hover{background:#b0001e}
-.btn-cv{background:#7c3aed}
-.btn-cv:hover{background:#6d28d9}
+.jc-foot{padding:7px 13px 11px;display:flex;justify-content:flex-end;gap:6px;
+          border-top:1px solid #f0fdf4}
+.btn{display:inline-block;padding:6px 13px;border-radius:7px;text-decoration:none;
+      font-size:.74rem;font-weight:700;color:#fff}
+.btn-apply{background:linear-gradient(135deg,#4ade80,#16a34a);
+            box-shadow:0 2px 6px rgba(22,163,74,.32)}
+.btn-apply:hover{filter:brightness(1.08)}
+.btn-cv{background:#0d9488}
+.btn-cv:hover{background:#0f766e}
 
 /* ── map marker ── */
 .mk-wrap{position:relative;display:flex;flex-direction:column;align-items:center}
-.mk-circle{width:34px;height:34px;border-radius:50%;background:#1a1a2e;
-            border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);
+.mk-circle{width:36px;height:36px;border-radius:50%;
+            background:linear-gradient(135deg,#4ade80,#16a34a);
+            border:3px solid #fff;box-shadow:0 2px 8px rgba(22,163,74,.45);
             display:flex;align-items:center;justify-content:center;
-            color:#fff;font-size:.7rem;font-weight:700;cursor:pointer;
+            color:#fff;font-size:.72rem;font-weight:800;cursor:pointer;
             transition:transform .15s}
 .mk-circle:hover{transform:scale(1.15)}
-.mk-circle.active{background:#e60028;transform:scale(1.2)}
-.mk-label{background:rgba(0,0,0,.65);color:#fff;font-size:.62rem;font-weight:600;
-           padding:2px 5px;border-radius:3px;white-space:nowrap;margin-top:3px;
+.mk-circle.active{background:linear-gradient(135deg,#15803d,#14532d);transform:scale(1.22)}
+.mk-label{background:rgba(21,128,61,.85);color:#fff;font-size:.62rem;font-weight:600;
+           padding:2px 6px;border-radius:4px;white-space:nowrap;margin-top:3px;
            pointer-events:none}
 
 .empty{padding:36px 20px;text-align:center;color:#94a3b8;font-size:.88rem}
@@ -121,7 +150,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   .side{position:absolute;right:0;top:0;bottom:0;z-index:500;width:320px;
          box-shadow:-4px 0 16px rgba(0,0,0,.15)}
   .side.closed{width:0}
-  .hdr-filters{display:none}
+  .cat-panel{width:248px}
 }
 </style>
 </head>
@@ -129,37 +158,51 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
 
 <div class="hdr">
   <div class="hdr-left">
-    <h1>🗺 香港求职地图</h1>
+    <div class="brand">
+      <div class="brand-logo">⚡</div>
+      <h1>秒投</h1>
+      <span class="slogan">香港求职地图 · 一键速投</span>
+    </div>
     <div class="hdr-meta">
       <span class="hdr-info">共 <strong id="total-count">1791</strong> 个职位 · 更新于 2026-05-21 11:51 UTC</span>
-      <span style="background:#0caa41;color:#fff;padding:3px 8px;border-radius:4px;font-size:.75rem;font-weight:700">Glassdoor 389</span> <span style="background:#1e7d34;color:#fff;padding:3px 8px;border-radius:4px;font-size:.75rem;font-weight:700">GovHK 54</span> <span style="background:#2164f3;color:#fff;padding:3px 8px;border-radius:4px;font-size:.75rem;font-weight:700">Indeed 16</span> <span style="background:#db2777;color:#fff;padding:3px 8px;border-radius:4px;font-size:.75rem;font-weight:700">JobMarket 163</span> <span style="background:#e60028;color:#fff;padding:3px 8px;border-radius:4px;font-size:.75rem;font-weight:700">JobsDB 719</span> <span style="background:#0d9488;color:#fff;padding:3px 8px;border-radius:4px;font-size:.75rem;font-weight:700">NGO 13</span> <span style="background:#7c3aed;color:#fff;padding:3px 8px;border-radius:4px;font-size:.75rem;font-weight:700">Recruit 437</span>
+      <span style="background:#0caa41;color:#fff;padding:2px 7px;border-radius:4px;font-size:.7rem;font-weight:700">Glassdoor 389</span> <span style="background:#1e7d34;color:#fff;padding:2px 7px;border-radius:4px;font-size:.7rem;font-weight:700">GovHK 54</span> <span style="background:#2164f3;color:#fff;padding:2px 7px;border-radius:4px;font-size:.7rem;font-weight:700">Indeed 16</span> <span style="background:#db2777;color:#fff;padding:2px 7px;border-radius:4px;font-size:.7rem;font-weight:700">JobMarket 163</span> <span style="background:#e60028;color:#fff;padding:2px 7px;border-radius:4px;font-size:.7rem;font-weight:700">JobsDB 719</span> <span style="background:#0d9488;color:#fff;padding:2px 7px;border-radius:4px;font-size:.7rem;font-weight:700">NGO 13</span> <span style="background:#7c3aed;color:#fff;padding:2px 7px;border-radius:4px;font-size:.7rem;font-weight:700">Recruit 437</span>
     </div>
   </div>
-  <div class="date-filters" id="date-filters">
-    <span style="font-size:.72rem;opacity:.7">📅 发布时间</span>
-    <span class="dtag" data-days="3">近3天</span>
-    <span class="dtag" data-days="5">近5天</span>
-    <span class="dtag on" data-days="7">近7天</span>
-    <span class="dtag" data-days="0">全部</span>
-  </div>
-  <a href="resume.html" class="resume-btn">📄 生成简历</a>
-  <div class="hdr-filters" id="hdr-filters">
-    <span class="ftag on" data-cat="all">全部</span>
-    <span class="ftag" data-cat="助理"    style="border-color:#6366f1;color:#c7d2fe">助理</span>
-    <span class="ftag" data-cat="运营"    style="border-color:#10b981;color:#a7f3d0">运营</span>
-    <span class="ftag" data-cat="行政"    style="border-color:#f59e0b;color:#fde68a">行政</span>
-    <span class="ftag" data-cat="统筹"    style="border-color:#ec4899;color:#fbcfe8">统筹</span>
-    <span class="ftag" data-cat="内容"    style="border-color:#8b5cf6;color:#ddd6fe">内容</span>
-    <span class="ftag" data-cat="文案"    style="border-color:#e11d48;color:#fecdd3">文案</span>
-    <span class="ftag" data-cat="编辑"    style="border-color:#0891b2;color:#bae6fd">编辑</span>
-    <span class="ftag" data-cat="公关PR"  style="border-color:#7c3aed;color:#ddd6fe">公关PR</span>
-    <span class="ftag" data-cat="研究"    style="border-color:#15803d;color:#bbf7d0">研究</span>
-    <span class="ftag" data-cat="管培生"  style="border-color:#dc2626;color:#fecaca">管培生</span>
-    <span class="ftag" data-cat="项目"    style="border-color:#0f766e;color:#99f6e4">项目</span>
-    <span class="ftag" data-cat="市场"    style="border-color:#9333ea;color:#e9d5ff">市场</span>
-    <span class="ftag" data-cat="英语教学" style="border-color:#047857;color:#a7f3d0">英语教学</span>
-    <span class="ftag" data-cat="法律辅助" style="border-color:#92400e;color:#fde68a">法律辅助</span>
-    <span class="ftag" data-cat="翻译"    style="border-color:#b45309;color:#fde68a">翻译</span>
+
+  <div class="hdr-right">
+    <div class="cat-dd" id="cat-dd">
+      <button class="cat-btn" id="cat-btn">
+        <span id="cat-btn-label">🏷 全部分类</span>
+        <span class="arrow">▼</span>
+      </button>
+      <div class="cat-panel" id="cat-panel">
+        <div class="cat-item on" data-cat="all"><span class="cat-dot" style="background:#16a34a"></span>全部分类</div>
+<div class="cat-item" data-cat="助理"><span class="cat-dot" style="background:#6366f1"></span>助理</div>
+<div class="cat-item" data-cat="运营"><span class="cat-dot" style="background:#10b981"></span>运营</div>
+<div class="cat-item" data-cat="行政"><span class="cat-dot" style="background:#f59e0b"></span>行政</div>
+<div class="cat-item" data-cat="统筹"><span class="cat-dot" style="background:#ec4899"></span>统筹</div>
+<div class="cat-item" data-cat="内容"><span class="cat-dot" style="background:#8b5cf6"></span>内容</div>
+<div class="cat-item" data-cat="文案"><span class="cat-dot" style="background:#e11d48"></span>文案</div>
+<div class="cat-item" data-cat="编辑"><span class="cat-dot" style="background:#0891b2"></span>编辑</div>
+<div class="cat-item" data-cat="公关PR"><span class="cat-dot" style="background:#7c3aed"></span>公关PR</div>
+<div class="cat-item" data-cat="研究"><span class="cat-dot" style="background:#15803d"></span>研究</div>
+<div class="cat-item" data-cat="管培生"><span class="cat-dot" style="background:#dc2626"></span>管培生</div>
+<div class="cat-item" data-cat="项目"><span class="cat-dot" style="background:#0f766e"></span>项目</div>
+<div class="cat-item" data-cat="市场"><span class="cat-dot" style="background:#9333ea"></span>市场</div>
+<div class="cat-item" data-cat="英语教学"><span class="cat-dot" style="background:#047857"></span>英语教学</div>
+<div class="cat-item" data-cat="法律辅助"><span class="cat-dot" style="background:#92400e"></span>法律辅助</div>
+<div class="cat-item" data-cat="翻译"><span class="cat-dot" style="background:#b45309"></span>翻译</div>
+
+      </div>
+    </div>
+    <div class="date-filters" id="date-filters">
+      <span class="lbl">📅 发布</span>
+      <span class="dtag" data-days="3">近3天</span>
+      <span class="dtag" data-days="5">近5天</span>
+      <span class="dtag on" data-days="7">近7天</span>
+      <span class="dtag" data-days="0">全部</span>
+    </div>
+    <a href="resume.html" class="resume-btn">📄 生成简历</a>
   </div>
 </div>
 
@@ -351,12 +394,23 @@ function switchTab(tab, id) {
 }
 
 // ── 分类过滤 ──────────────────────────────────────────────────────────────────
-document.getElementById('hdr-filters').addEventListener('click', e => {
-  const tag = e.target.closest('.ftag');
-  if (!tag) return;
-  activeCategory = tag.dataset.cat;
-  document.querySelectorAll('.ftag').forEach(t => t.classList.remove('on'));
-  tag.classList.add('on');
+const catDd = document.getElementById('cat-dd');
+document.getElementById('cat-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  catDd.classList.toggle('open');
+});
+document.addEventListener('click', () => catDd.classList.remove('open'));
+
+document.getElementById('cat-panel').addEventListener('click', e => {
+  e.stopPropagation();
+  const item = e.target.closest('.cat-item');
+  if (!item) return;
+  activeCategory = item.dataset.cat;
+  document.querySelectorAll('.cat-item').forEach(t => t.classList.remove('on'));
+  item.classList.add('on');
+  document.getElementById('cat-btn-label').textContent =
+    '🏷 ' + (activeCategory === 'all' ? '全部分类' : activeCategory);
+  catDd.classList.remove('open');
   refreshMarkers();
   if (!document.getElementById('side').classList.contains('closed')) {
     renderJobs(currentJobs);
