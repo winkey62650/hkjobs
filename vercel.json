@@ -1,4 +1,6 @@
 {
+  "buildCommand": "npm install",
+  "outputDirectory": ".",
   "rewrites": [
     { "source": "/api/tailor", "destination": "/api/tailor.js" }
   ]
