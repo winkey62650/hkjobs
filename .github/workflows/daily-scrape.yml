@@ -47,7 +47,7 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/jobs.json index.html
+          git add data/jobs.json index.html version.json
           # Only commit if there are changes
           git diff --cached --quiet || git commit -m "chore: job data update $(TZ='Asia/Hong_Kong' date +'%Y-%m-%d %H:%M') HKT"
 

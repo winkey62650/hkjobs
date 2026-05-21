@@ -101,13 +101,16 @@ async def main():
         j["scraped_at"]  = ts
         if u in history:
             old = history[u]
-            j["first_seen"] = old.get("first_seen", today_s)
+            j["first_seen"]    = old.get("first_seen", today_s)
+            j["first_seen_ts"] = old.get("first_seen_ts") or \
+                                 (j["first_seen"] + "T00:00:00Z")
             # 保留首次解析到的发布日期（更接近真实发布日）
             if old.get("posted_date") and not j["posted_date"]:
                 j["posted_date"] = old["posted_date"]
             updated += 1
         else:
-            j["first_seen"] = today_s
+            j["first_seen"]    = today_s
+            j["first_seen_ts"] = ts          # 精确到分钟的首次发现时间
             fresh += 1
         history[u] = j
 
@@ -115,6 +118,8 @@ async def main():
     for j in history.values():
         if not j.get("first_seen"):
             j["first_seen"] = today_s
+        if not j.get("first_seen_ts"):
+            j["first_seen_ts"] = j["first_seen"] + "T00:00:00Z"
         j["effective_date"] = j.get("posted_date") or j.get("first_seen")
 
     merged = list(history.values())

@@ -1,5 +1,5 @@
 // 秒投 Service Worker — 离线缓存
-const CACHE = 'miaotou-v2';
+const CACHE = 'miaotou-v3';
 const SHELL = [
   '/',
   '/index.html',
@@ -30,6 +30,12 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
+
+  // version.json：始终走网络，确保能检测到新一轮更新
+  if (req.url.includes('version.json')) {
+    e.respondWith(fetch(req).catch(() => caches.match(req)));
+    return;
+  }
 
   // HTML 页面：网络优先（保证每天的数据是最新的），离线时回退缓存
   if (req.mode === 'navigate' || req.destination === 'document') {

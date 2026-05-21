@@ -168,6 +168,23 @@ if ungrouped:
         "name": "🌐 不限地区 All HK", "jobs": ungrouped,
     }
 
+# ── 新增岗位检测（最近一小时内首次发现的岗位）────────────────────────────────
+gen_dt      = datetime.utcnow()
+gen_ts_iso  = gen_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+_new_cutoff = gen_dt - timedelta(minutes=70)
+
+def is_new_job(j) -> bool:
+    ts = j.get("first_seen_ts", "")
+    if not ts:
+        return False
+    try:
+        return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ") >= _new_cutoff
+    except Exception:
+        return False
+
+new_last_hour = sum(1 for j in data if is_new_job(j))
+print(f"最近一小时新增 {new_last_hour} 个职位")
+
 # ── 构建 JS 数据 ──────────────────────────────────────────────────────────────
 js_locations = []
 for name, grp in loc_groups.items():
@@ -192,6 +209,7 @@ for name, grp in loc_groups.items():
             "date":    eff_date,
             "source":  src,
             "src_color": SOURCE_COLORS.get(src, "#888"),
+            "is_new":  is_new_job(j),
         })
     js_locations.append({
         "name": name,
@@ -420,6 +438,33 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
 
 .empty{{padding:36px 20px;text-align:center;color:#94a3b8;font-size:.88rem}}
 
+/* ── 新岗位提醒条 ── */
+.notify-bar{{display:none;align-items:center;gap:10px;
+     background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;
+     padding:9px 16px;font-size:.85rem;font-weight:600;flex-shrink:0;
+     box-shadow:0 2px 8px rgba(16,163,74,.25)}}
+.notify-bar.show{{display:flex}}
+.nb-text strong{{font-size:1.05rem;margin:0 2px}}
+.nb-view{{margin-left:auto;padding:6px 15px;background:#fff;color:#15803d;
+     border:none;border-radius:8px;font-weight:800;font-size:.8rem;cursor:pointer}}
+.nb-view:hover{{background:#dcfce7}}
+.nb-close{{cursor:pointer;font-size:1.05rem;opacity:.85;padding:0 3px;
+     flex-shrink:0}}
+.nb-close:hover{{opacity:1}}
+/* 刷新提示气泡 */
+.refresh-toast{{position:fixed;bottom:20px;left:50%;
+     transform:translateX(-50%) translateY(180%);
+     background:#15803d;color:#fff;padding:12px 22px;border-radius:13px;
+     font-size:.85rem;font-weight:700;cursor:pointer;z-index:3000;
+     box-shadow:0 8px 28px rgba(0,0,0,.32);transition:transform .32s}}
+.refresh-toast.show{{transform:translateX(-50%) translateY(0)}}
+/* 新岗位徽章 + 「仅看新增」chip */
+.badge-new{{background:#16a34a;color:#fff}}
+.new-chip{{display:inline-flex;align-items:center;gap:4px;cursor:pointer;
+     background:#16a34a;color:#fff;padding:2px 9px;border-radius:11px;
+     font-size:.74rem;font-weight:700;margin-right:6px}}
+.new-chip:hover{{background:#15803d}}
+
 @media(max-width:768px){{
   /* 顶栏紧凑化 */
   .hdr{{padding:7px 11px;gap:6px}}
@@ -497,6 +542,12 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
   </div>
 </div>
 
+<div class="notify-bar" id="notify-bar">
+  <span class="nb-text">🔔 最近一小时新增 <strong id="nb-count">0</strong> 个职位</span>
+  <button class="nb-view" id="nb-view">查看新职位</button>
+  <span class="nb-close" id="nb-close" title="关闭">✕</span>
+</div>
+
 <div class="main">
   <div id="map"></div>
 
@@ -524,6 +575,8 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
   </div>
 </div>
 
+<div class="refresh-toast" id="refresh-toast">🔄 有新一批职位 · 点此刷新</div>
+
 <script>
 const LOCATIONS = {js_data};
 const ALL_JOBS  = LOCATIONS.flatMap(l => l.jobs);
@@ -545,8 +598,11 @@ let activeMarkerEl = null;
 let currentJobs    = [];
 let sortBySalary   = false;
 let activeDays     = 7;   // 默认只看近7天
+let showOnlyNew    = false;
 
-const TODAY = new Date("{gen_date}T00:00:00Z");
+const TODAY     = new Date("{gen_date}T00:00:00Z");
+const NEW_COUNT = {new_last_hour};
+const GEN_TS    = "{gen_ts_iso}";
 
 function jobAgeDays(j) {{
   if (!j.date) return 9999;
@@ -687,6 +743,7 @@ function buildCard(j) {{
       <div class="jc-co">${{j.company}}</div>
       ${{salRow}}
       <div class="jc-tags">
+        ${{j.is_new ? '<span class="badge badge-new">🆕 新</span>' : ''}}
         <span class="badge b-cat" style="background:${{j.color}}">${{j.label}}</span>
         <span class="badge b-loc">📍 ${{j.location || '不限地区'}}</span>
         ${{dateBadge}}
@@ -743,6 +800,7 @@ document.getElementById('date-filters').addEventListener('click', e => {{
 let listLimit = 80;
 function getListJobs() {{
   let arr = ALL_JOBS.filter(j => catOk(j) && dateOk(j));
+  if (showOnlyNew) arr = arr.filter(j => j.is_new);
   const q = document.getElementById('list-q').value.trim().toLowerCase();
   if (q) arr = arr.filter(j => (j.title + j.company + j.snippet).toLowerCase().includes(q));
   arr = arr.slice();
@@ -753,7 +811,9 @@ function renderList(resetLimit) {{
   if (resetLimit !== false) listLimit = 80;
   const arr = getListJobs();
   const dLabel = activeDays === 0 ? '全部时间' : `近${{activeDays}}天`;
-  document.getElementById('list-count').innerHTML =
+  const newChip = showOnlyNew
+    ? '<span class="new-chip" id="new-chip">🆕 仅看新增 ✕</span>' : '';
+  document.getElementById('list-count').innerHTML = newChip +
     `共 <strong>${{arr.length}}</strong> 个职位 · ${{dLabel}}` +
     (activeCategory !== 'all' ? ` · ${{activeCategory}}` : '');
   const body = document.getElementById('list-body');
@@ -792,6 +852,41 @@ document.getElementById('view-toggle').addEventListener('click', e => {{
   else setTimeout(() => map.invalidateSize(), 60);
 }});
 
+// ── 新岗位提醒 ────────────────────────────────────────────────────────────────
+if (NEW_COUNT > 0) {{
+  document.getElementById('nb-count').textContent = NEW_COUNT;
+  document.getElementById('notify-bar').classList.add('show');
+}}
+document.getElementById('nb-close').addEventListener('click', () => {{
+  document.getElementById('notify-bar').classList.remove('show');
+}});
+document.getElementById('nb-view').addEventListener('click', () => {{
+  showOnlyNew = true;
+  document.getElementById('notify-bar').classList.remove('show');
+  document.querySelector('.vt-btn[data-view="list"]').click();
+}});
+// 列表里点「仅看新增 ✕」chip 取消筛选
+document.getElementById('list-count').addEventListener('click', e => {{
+  if (e.target.id === 'new-chip') {{ showOnlyNew = false; renderList(); }}
+}});
+
+// ── 每10分钟检查是否有新一轮更新 ──────────────────────────────────────────────
+const refreshToast = document.getElementById('refresh-toast');
+refreshToast.addEventListener('click', () => location.reload());
+async function checkUpdates() {{
+  try {{
+    const v = await fetch('/version.json?_=' + Date.now(), {{cache:'no-store'}})
+                      .then(r => r.json());
+    if (v.generated_at && v.generated_at > GEN_TS) {{
+      refreshToast.textContent = v.new_last_hour > 0
+        ? `🔄 新增 ${{v.new_last_hour}} 个职位 · 点此刷新`
+        : '🔄 职位已更新 · 点此刷新';
+      refreshToast.classList.add('show');
+    }}
+  }} catch (e) {{}}
+}}
+setInterval(checkUpdates, 10 * 60 * 1000);
+
 // ── PWA Service Worker ────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {{
   window.addEventListener('load', () => {{
@@ -802,6 +897,12 @@ if ('serviceWorker' in navigator) {{
 </body></html>"""
 
 OUTPUT_FILE.write_text(html, encoding="utf-8")
+
+# version.json — 供前端轮询检测「是否有新一轮更新」
+(OUTPUT_FILE.parent / "version.json").write_text(
+    json.dumps({"generated_at": gen_ts_iso, "new_last_hour": new_last_hour}),
+    encoding="utf-8")
+
 print(f"✅ 地图已生成: {OUTPUT_FILE.resolve()}")
 print(f"   {len(loc_groups)} 个地点 · {total_located} 个职位已标注")
 
