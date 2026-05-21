@@ -258,6 +258,7 @@ for _lbl, _col in LABEL_COLORS.items():
 html = f"""<!DOCTYPE html>
 <html lang="zh">
 <head>
+<script>if(!localStorage.getItem('miaotou-account'))location.replace('/welcome.html');</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>秒投 · 香港求职地图</title>
