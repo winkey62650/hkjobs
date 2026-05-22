@@ -1,0 +1,56 @@
+name: Health Check
+
+on:
+  schedule:
+    # 每 30 分钟体检一次
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+# 需要把更新后的 health.json 推回仓库
+permissions:
+  actions: read
+  contents: write
+
+# 不与爬虫并发推送
+concurrency:
+  group: hkjobs-health
+  cancel-in-progress: false
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run health check
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID:   ${{ secrets.TG_CHAT_ID }}
+          GH_TOKEN:     ${{ secrets.GITHUB_TOKEN }}
+        run: python3 health_check.py
+
+      - name: Commit health state
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/health.json
+          if git diff --cached --quiet; then
+            echo "健康状态无变化，跳过提交"
+            exit 0
+          fi
+          git commit -m "chore: health check $(TZ='Asia/Hong_Kong' date +'%Y-%m-%d %H:%M') HKT"
+          for i in 1 2 3; do
+            if git push; then echo "✅ 推送成功"; exit 0; fi
+            echo "推送失败，第 $i 次，rebase 后重试…"
+            git pull --rebase origin main || true
+            sleep 5
+          done
+          echo "::error::推送多次失败"
+          exit 1
