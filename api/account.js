@@ -81,6 +81,42 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, account });
     }
 
+    // ── 购物车：加入一个职位（按 url 去重）───────────────────────────────
+    if (action === "cart-add") {
+      if (!id) return res.status(400).json({ error: "请先登录" });
+      const raw = await kv(["GET", "acct:" + id]);
+      if (!raw) return res.status(404).json({ error: "账号码不存在" });
+      const account = JSON.parse(raw);
+      account.cart = Array.isArray(account.cart) ? account.cart : [];
+      const item = body.item || {};
+      if (item.url && !account.cart.some((c) => c.url === item.url)) {
+        account.cart.push({
+          url: item.url,
+          title: item.title || "",
+          company: item.company || "",
+          jd: item.jd || "",
+          label: item.label || "",
+          addedAt: new Date().toISOString(),
+          tailored: null,
+        });
+      }
+      account.updated = today;
+      await kv(["SET", "acct:" + id, JSON.stringify(account)]);
+      return res.status(200).json({ ok: true, cart: account.cart });
+    }
+
+    // ── 购物车：整体替换（移除、写入已生成的定制材料）────────────────────
+    if (action === "cart-set") {
+      if (!id) return res.status(400).json({ error: "请先登录" });
+      const raw = await kv(["GET", "acct:" + id]);
+      if (!raw) return res.status(404).json({ error: "账号码不存在" });
+      const account = JSON.parse(raw);
+      account.cart = Array.isArray(body.cart) ? body.cart : [];
+      account.updated = today;
+      await kv(["SET", "acct:" + id, JSON.stringify(account)]);
+      return res.status(200).json({ ok: true, cart: account.cart });
+    }
+
     return res.status(400).json({ error: "未知操作" });
   } catch (err) {
     return res.status(500).json({ error: err.message });

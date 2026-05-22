@@ -423,6 +423,13 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
 .btn-apply:hover{{filter:brightness(1.08)}}
 .btn-cv{{background:#0d9488}}
 .btn-cv:hover{{background:#0f766e}}
+.btn-cart{{background:#0d9488;border:none;cursor:pointer;font-family:inherit}}
+.btn-cart:hover{{filter:brightness(1.08)}}
+.btn-cart.incart{{background:#15803d}}
+.cart-link{{display:inline-flex;align-items:center;gap:5px}}
+.cart-link .cnt{{background:#fff;color:#15803d;border-radius:9px;
+     min-width:18px;height:18px;display:inline-flex;align-items:center;
+     justify-content:center;font-size:.72rem;font-weight:800;padding:0 4px}}
 
 /* ── map marker ── */
 .mk-wrap{{position:relative;display:flex;flex-direction:column;align-items:center}}
@@ -538,7 +545,7 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
       <span class="dtag on" data-mode="3days">近三天</span>
       <span class="dtag" data-mode="all">全部</span>
     </div>
-    <a href="resume.html" class="resume-btn">📄 生成简历</a>
+    <a href="/saved.html" class="resume-btn cart-link">📋 收藏 <span class="cnt" id="cart-count">0</span></a>
   </div>
 </div>
 
@@ -580,6 +587,7 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
 <script>
 const LOCATIONS = {js_data};
 const ALL_JOBS  = LOCATIONS.flatMap(l => l.jobs);
+let cartUrls = new Set();
 let currentView = 'map';
 
 // ── 数据新鲜度检查 —— 停更过久就在顶栏红字警示 ───────────────────────────────
@@ -745,7 +753,6 @@ function buildCard(j) {{
   const salRow = hasSal
     ? `<div class="jc-sal"><span class="jc-sal-icon">💰</span><span class="jc-sal-txt">${{j.salary}}</span></div>`
     : `<div class="jc-sal"><span class="jc-sal-icon">💰</span><span class="jc-sal-none">薪资面议</span></div>`;
-  const jdEnc = encodeURIComponent((j.snippet || '').substring(0, 1000));
   const al = ageLabel(j);
   let dateBadge = '';
   if (al) {{
@@ -774,7 +781,8 @@ function buildCard(j) {{
     </div>
     <div class="jc-foot">
       <a class="btn btn-apply" href="${{j.url}}" target="_blank">查看完整JD →</a>
-      ${{jdEnc ? `<a class="btn btn-cv" href="resume.html?jd=${{jdEnc}}" target="_blank">✨ 匹配简历</a>` : ''}}
+      <button class="btn btn-cart cart-btn${{cartUrls.has(j.url)?' incart':''}}"
+        data-url="${{j.url}}" onclick="addCart(this)">${{cartUrls.has(j.url)?'✓ 已收藏':'🛒 加入购物车'}}</button>
     </div>
   </div>`;
 }}
@@ -907,6 +915,54 @@ async function checkUpdates() {{
   }} catch (e) {{}}
 }}
 setInterval(checkUpdates, 10 * 60 * 1000);
+
+// ── 购物车 ───────────────────────────────────────────────────────────────────
+async function loadCart(){{
+  const id = localStorage.getItem('miaotou-account');
+  if(!id) return;
+  try{{
+    const r = await fetch('/api/account', {{method:'POST',
+      headers:{{'Content-Type':'application/json'}},
+      body:JSON.stringify({{action:'load', id}})}});
+    const d = await r.json();
+    const cart = (d.account && d.account.cart) || [];
+    cartUrls = new Set(cart.map(c => c.url));
+    const el = document.getElementById('cart-count');
+    if(el) el.textContent = cart.length;
+    document.querySelectorAll('.cart-btn').forEach(b => {{
+      if(cartUrls.has(b.dataset.url)){{ b.textContent='✓ 已收藏'; b.classList.add('incart'); }}
+    }});
+  }}catch(e){{}}
+}}
+async function addCart(btn){{
+  const url = btn.dataset.url;
+  const id = localStorage.getItem('miaotou-account');
+  if(!id){{ location.href='/welcome.html'; return; }}
+  if(cartUrls.has(url)){{ location.href='/saved.html'; return; }}
+  const job = ALL_JOBS.find(j => j.url === url);
+  if(!job) return;
+  btn.textContent='⏳';
+  try{{
+    const r = await fetch('/api/account', {{method:'POST',
+      headers:{{'Content-Type':'application/json'}},
+      body:JSON.stringify({{action:'cart-add', id, item:{{
+        url:job.url, title:job.title, company:job.company,
+        jd:job.snippet||'', label:job.label||''
+      }}}})}});
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.error||'收藏失败');
+    cartUrls.add(url);
+    const cnt = document.getElementById('cart-count');
+    if(cnt) cnt.textContent = (d.cart||[]).length;
+    document.querySelectorAll('.cart-btn').forEach(b => {{
+      if(b.dataset.url===url){{ b.textContent='✓ 已收藏'; b.classList.add('incart'); }}
+    }});
+  }}catch(e){{
+    btn.textContent='🛒 加入购物车';
+    alert(e.message||e);
+  }}
+}}
+loadCart();
 
 // ── PWA Service Worker ────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {{

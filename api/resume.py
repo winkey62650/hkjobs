@@ -338,11 +338,21 @@ def _coverletter_pdf(data, F):
 
 
 def generate_pdf(data):
-    """Resume PDF; if coverLetter is present, append it as page 2."""
+    """only = resume / cover / both（默认 both）。"""
     F = FONTS["modern" if data.get("template") == "modern" else "classic"]
+    only = data.get("only", "both")
+    cl = (data.get("coverLetter") or "").strip()
+
+    # 只要 cover letter
+    if only == "cover":
+        return _coverletter_pdf(data, F) if cl else _resume_pdf(data, F)
+
     resume = _resume_pdf(data, F)
-    if not (data.get("coverLetter") or "").strip():
+    # 只要简历，或没有 cover letter 内容
+    if only == "resume" or not cl:
         return resume
+
+    # both —— 简历 + cover letter 合成一个 2 页 PDF
     cover = _coverletter_pdf(data, F)
     writer = PdfWriter()
     for src in (resume, cover):

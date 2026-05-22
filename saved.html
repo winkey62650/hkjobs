@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<script>if(!localStorage.getItem('miaotou-account'))location.replace('/welcome.html');</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>我的收藏 · 秒投</title>
+<meta name="theme-color" content="#16a34a">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;
+  background:#f0fdf4;color:#1e293b;min-height:100vh}
+
+.hdr{background:#fff;border-bottom:1px solid #d1fae5;box-shadow:0 1px 10px rgba(16,163,74,.07);
+  padding:11px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50}
+.hdr .logo{width:30px;height:30px;border-radius:9px;flex-shrink:0;
+  background:linear-gradient(135deg,#4ade80,#16a34a);display:flex;align-items:center;
+  justify-content:center;font-size:1rem;box-shadow:0 3px 8px rgba(22,163,74,.35)}
+.hdr h1{font-size:1.05rem;font-weight:800;color:#15803d;white-space:nowrap}
+.hdr .back{margin-left:auto;padding:7px 13px;border-radius:8px;font-size:.8rem;
+  font-weight:700;text-decoration:none;background:#f0fdf4;color:#15803d;
+  border:1.5px solid #86efac;white-space:nowrap}
+
+.wrap{max-width:680px;margin:0 auto;padding:14px 12px 40px}
+.summary{font-size:.85rem;color:#475569;padding:6px 4px 12px}
+.summary strong{color:#16a34a}
+.bar{height:5px;background:#dcfce7;border-radius:3px;overflow:hidden;margin:2px 4px 14px}
+.bar > div{height:100%;background:linear-gradient(90deg,#4ade80,#16a34a);width:0;transition:width .3s}
+
+.jcard{background:#fff;border-radius:12px;border:1px solid #e2e8f0;border-left:4px solid #86efac;
+  padding:13px 14px;margin-bottom:11px}
+.jc-title{font-size:.95rem;font-weight:800;color:#1e293b;line-height:1.35}
+.jc-co{font-size:.83rem;font-weight:600;color:#475569;margin-top:2px}
+.jc-status{display:inline-block;margin-top:8px;font-size:.76rem;font-weight:700;
+  padding:3px 9px;border-radius:11px}
+.st-wait{background:#f1f5f9;color:#64748b}
+.st-run {background:#fef9c3;color:#854d0e}
+.st-done{background:#dcfce7;color:#15803d}
+.st-err {background:#fee2e2;color:#b91c1c}
+.jc-acts{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+.act{padding:7px 12px;border-radius:8px;font-size:.78rem;font-weight:700;cursor:pointer;
+  border:none;text-decoration:none;display:inline-block;white-space:nowrap;font-family:inherit}
+.act-dl  {background:linear-gradient(135deg,#4ade80,#16a34a);color:#fff}
+.act-cl  {background:#0d9488;color:#fff}
+.act-go  {background:#f0fdf4;color:#15803d;border:1.5px solid #86efac}
+.act-rm  {background:#fff;color:#94a3b8;border:1.5px solid #e2e8f0}
+.act-rm:hover{color:#dc2626;border-color:#fecaca}
+.act:disabled,.act.off{opacity:.45;pointer-events:none}
+
+.empty{text-align:center;padding:60px 20px;color:#94a3b8}
+.empty .big{font-size:2.4rem;margin-bottom:10px}
+.empty a{color:#16a34a;font-weight:700;text-decoration:none}
+.tip{font-size:.78rem;color:#94a3b8;padding:4px 4px 0;line-height:1.6}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="logo">⚡</div>
+  <h1>📋 我的收藏</h1>
+  <a href="/" class="back">← 返回地图</a>
+</div>
+
+<div class="wrap">
+  <div class="summary" id="summary">加载中…</div>
+  <div class="bar" id="bar" style="display:none"><div id="bar-fill"></div></div>
+  <div id="list"></div>
+  <div class="tip" id="tip"></div>
+</div>
+
+<script>
+const ACCT = localStorage.getItem('miaotou-account');
+let cart = [];
+let profileResume = null, profileName = '';
+
+async function api(payload){
+  const r = await fetch('/api/account', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)
+  });
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error || ('HTTP '+r.status));
+  return d;
+}
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+async function saveCart(){ try{ await api({action:'cart-set', id:ACCT, cart}); }catch(e){} }
+
+// ── 渲染 ─────────────────────────────────────────────────────────────────────
+function statusInfo(item){
+  if(item._running) return ['st-run','⏳ 正在生成定制简历…'];
+  if(item.tailored) return ['st-done','✅ 简历 + Cover Letter 已生成'];
+  if(item._error)   return ['st-err','❌ 生成失败，点「重新生成」'];
+  return ['st-wait','· 待生成'];
+}
+function render(){
+  const list = document.getElementById('list');
+  if(!cart.length){
+    document.getElementById('summary').textContent = '';
+    list.innerHTML =
+      '<div class="empty"><div class="big">🛒</div>' +
+      '还没有收藏的职位<br><br>' +
+      '<a href="/">← 去地图逛逛，把想投的工作加入购物车</a></div>';
+    document.getElementById('tip').textContent = '';
+    return;
+  }
+  const done = cart.filter(c=>c.tailored).length;
+  document.getElementById('summary').innerHTML =
+    '共 <strong>' + cart.length + '</strong> 个收藏 · 已生成 <strong>' + done + '</strong> 份';
+  list.innerHTML = cart.map((item,i)=>{
+    const [cls,txt] = statusInfo(item);
+    const ready = !!item.tailored;
+    return '<div class="jcard" id="card-'+i+'">' +
+      '<div class="jc-title">'+esc(item.title||'(职位)')+'</div>' +
+      '<div class="jc-co">'+esc(item.company||'')+'</div>' +
+      '<span class="jc-status '+cls+'" id="st-'+i+'">'+txt+'</span>' +
+      '<div class="jc-acts">' +
+        '<button class="act act-dl '+(ready?'':'off')+'" onclick="dl('+i+',\'resume\')">📄 下载简历</button>' +
+        '<button class="act act-cl '+(ready?'':'off')+'" onclick="dl('+i+',\'cover\')">📨 下载 Cover Letter</button>' +
+        (item._error?'<button class="act act-go" onclick="regen('+i+')">↻ 重新生成</button>':'') +
+        '<a class="act act-go" href="'+esc(item.url)+'" target="_blank">🔗 去投递</a>' +
+        '<button class="act act-rm" onclick="removeItem('+i+')">🗑 移除</button>' +
+      '</div></div>';
+  }).join('');
+  document.getElementById('tip').textContent =
+    'AI 会按你账号里的资料 + 每个职位的 JD，定制专属简历。生成较慢，请耐心等候。';
+}
+function setStatus(i){
+  const item = cart[i];
+  const [cls,txt] = statusInfo(item);
+  const el = document.getElementById('st-'+i);
+  if(el){ el.className = 'jc-status '+cls; el.textContent = txt; }
+}
+
+// ── 简历素材生成 ─────────────────────────────────────────────────────────────
+function buildBackground(){
+  const edu = (profileResume.edu||[])
+    .map(e=>((e.deg||'')+' '+(e.sch||'')).trim()).filter(Boolean).join('; ');
+  const obj = (profileResume.fields||{})['f-obj'] || '';
+  return [edu, obj].filter(Boolean).join('. ') || 'Hong Kong job seeker';
+}
+async function tailor(item){
+  const exps = (profileResume.exp||[]).map((x,i)=>({
+    index:i, position:x.pos||'', company:x.co||'', bullets:x.bul||''
+  }));
+  const r = await fetch('/api/tailor', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ jd:item.jd||item.title, experiences:exps,
+      background:buildBackground(), name:profileName })
+  });
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error || ('HTTP '+r.status));
+  return d;
+}
+async function generateAll(){
+  const bar = document.getElementById('bar');
+  bar.style.display = cart.some(c=>!c.tailored) ? 'block' : 'none';
+  for(let i=0;i<cart.length;i++){
+    if(cart[i].tailored) continue;
+    cart[i]._running = true; cart[i]._error = false;
+    setStatus(i);
+    document.getElementById('summary').innerHTML =
+      '正在生成定制简历… <strong>'+(i+1)+'</strong> / '+cart.length;
+    try{
+      cart[i].tailored = await tailor(cart[i]);
+      cart[i]._running = false;
+      await saveCart();
+    }catch(e){
+      cart[i]._running = false;
+      cart[i]._error = true;
+    }
+    render();
+    const done = cart.filter(c=>c.tailored).length;
+    document.getElementById('bar-fill').style.width =
+      Math.round(done/cart.length*100)+'%';
+  }
+  bar.style.display = 'none';
+  render();
+}
+async function regen(i){
+  cart[i]._error = false; cart[i].tailored = null;
+  cart[i]._running = true; setStatus(i);
+  try{
+    cart[i].tailored = await tailor(cart[i]);
+    cart[i]._running = false;
+    await saveCart();
+  }catch(e){
+    cart[i]._running = false; cart[i]._error = true;
+  }
+  render();
+}
+
+// ── 下载 / 移除 ──────────────────────────────────────────────────────────────
+function buildPayload(tailored, only){
+  const r = profileResume, f = r.fields || {};
+  const particulars = [];
+  if(f['f-dob'])    particulars.push(['Date of Birth', f['f-dob']]);
+  if(f['f-gender']) particulars.push(['Gender', f['f-gender']]);
+  if(f['f-hkid'])   particulars.push(['HKID No.', f['f-hkid']+'(X)']);
+  const skills = [];
+  if(f['sk-lang']) skills.push(['Languages', f['sk-lang']]);
+  if(f['sk-it'])   skills.push(['IT Skills', f['sk-it']]);
+  let other = f['sk-misc'] || '';
+  if(tailored && tailored.skills) other = other ? other+', '+tailored.skills : tailored.skills;
+  if(other) skills.push(['Other Skills', other]);
+  const split = t => String(t||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const experience = (r.exp||[]).map((x,i)=>{
+    let bullets = split(x.bul);
+    if(tailored && tailored.experiences){
+      const t = tailored.experiences.find(e=>e.index===i);
+      if(t && t.bullets && t.bullets.length) bullets = t.bullets;
+    }
+    return {title:x.pos||'', org:x.co||'', dates:x.dt||'', bullets};
+  }).filter(x=>x.title||x.org);
+  return {
+    name: f['f-name-en'] || f['f-name-zh'] || '',
+    nameZh: (f['f-name-en'] && f['f-name-zh']) ? f['f-name-zh'] : '',
+    position: f['f-pos'] || (tailored&&tailored.roleTitle) || '',
+    contacts: [f['f-phone'],f['f-email'],f['f-addr'],f['f-linkedin']].filter(x=>x&&x.trim()),
+    particulars,
+    objective: (tailored && tailored.objective) || f['f-obj'] || '',
+    education: (r.edu||[]).map(e=>({title:e.deg||'',org:e.sch||'',extra:e.gpa||'',
+      dates:e.per||'', bullets:split(e.det)})).filter(e=>e.title||e.org),
+    awards: (r.awards||[]).map(a=>({title:a.aw||'',dates:a.ao||''})).filter(a=>a.title),
+    experience,
+    skills,
+    extracurricular: (r.extra||[]).map(x=>({title:x.nm||'',dates:x.or||'',
+      desc:x.ds||''})).filter(x=>x.title),
+    footer: {salary:f['f-sal']||'', availability:f['f-avail']||''},
+    template: r.template || 'classic',
+    photo: r.photo || '',
+    coverLetter: (tailored && tailored.coverLetter) || '',
+    company: (tailored && tailored.company) || '',
+    roleTitle: (tailored && tailored.roleTitle) || '',
+    only: only || 'both',
+  };
+}
+async function dl(i, only){
+  const item = cart[i];
+  if(!item.tailored){ alert('这份还没生成完'); return; }
+  try{
+    const res = await fetch('/api/resume', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(buildPayload(item.tailored, only))
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const base = (item.company || item.title || 'job')
+      .replace(/[^\w一-龥-]+/g,'_').slice(0,28);
+    a.download = base + (only==='cover' ? '_CoverLetter.pdf' : '_CV.pdf');
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  }catch(e){ alert('下载失败：'+(e.message||e)); }
+}
+async function removeItem(i){
+  if(!confirm('从收藏中移除「'+(cart[i].title||'这个职位')+'」？')) return;
+  cart.splice(i,1);
+  await saveCart();
+  render();
+}
+
+// ── 初始化 ───────────────────────────────────────────────────────────────────
+(async ()=>{
+  try{
+    const d = await api({action:'load', id:ACCT});
+    cart = (d.account && d.account.cart) || [];
+    const p = d.account && d.account.profiles && d.account.profiles[0];
+    if(p && p.resume){ profileResume = p.resume; profileName = p.name || ''; }
+  }catch(e){
+    document.getElementById('summary').textContent = '加载失败：'+(e.message||e);
+    return;
+  }
+  if(!profileResume){
+    document.getElementById('summary').innerHTML =
+      '还没有简历资料，请先 <a href="/welcome.html" style="color:#16a34a;font-weight:700">完善资料</a>。';
+    profileResume = {fields:{},edu:[],awards:[],exp:[],extra:[],template:'classic',photo:''};
+  }
+  render();
+  if(cart.some(c=>!c.tailored)) generateAll();
+})();
+</script>
+</body>
+</html>
