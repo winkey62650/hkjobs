@@ -1,0 +1,42 @@
+{
+  "overall": "ok",
+  "checked_at": "2026-05-22T16:14:27Z",
+  "since": "2026-05-22T16:14:27Z",
+  "checks": [
+    {
+      "name": "网页·首页",
+      "ok": true,
+      "msg": "HTTP 200"
+    },
+    {
+      "name": "网页·欢迎页",
+      "ok": true,
+      "msg": "HTTP 200"
+    },
+    {
+      "name": "网页·收藏页",
+      "ok": true,
+      "msg": "HTTP 200"
+    },
+    {
+      "name": "网页·简历页",
+      "ok": true,
+      "msg": "HTTP 200"
+    },
+    {
+      "name": "API/数据库",
+      "ok": true,
+      "msg": "HTTP 404（预期）"
+    },
+    {
+      "name": "数据新鲜度",
+      "ok": true,
+      "msg": "2079 个职位 · 2.3h 前更新"
+    },
+    {
+      "name": "爬虫运行",
+      "ok": true,
+      "msg": "近 3 小时 ✅1 ❌0"
+    }
+  ]
+}
