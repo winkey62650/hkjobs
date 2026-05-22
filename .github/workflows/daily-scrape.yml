@@ -6,6 +6,10 @@ on:
     - cron: "0 * * * *"
   workflow_dispatch:   # 允许手动触发
 
+# 让 GITHUB_TOKEN 能把数据推回仓库
+permissions:
+  contents: write
+
 # 同一时间只跑一个，避免两次抓取并发推送冲突
 concurrency:
   group: hkjobs-scrape
@@ -33,26 +37,18 @@ jobs:
 
       - name: Run scrapers
         run: python run_all.py 2
-        # max_pages=2 per keyword per source (~600-900 jobs total)
 
       - name: Generate map HTML
         run: python map_generator.py
 
-      - name: Copy resume.html (static asset)
-        run: |
-          # resume.html is checked into the repo root; nothing to copy
-          echo "resume.html already in repo root"
-
-      - name: Commit updated data + map
+      - name: Commit & push updated data
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/jobs.json index.html version.json
-          # Only commit if there are changes
-          git diff --cached --quiet || git commit -m "chore: job data update $(TZ='Asia/Hong_Kong' date +'%Y-%m-%d %H:%M') HKT"
-
-      - name: Push changes
-        uses: ad-m/github-push-action@v0.8.0
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: main
+          if git diff --cached --quiet; then
+            echo "数据无变化，跳过提交"
+          else
+            git commit -m "chore: job data update $(TZ='Asia/Hong_Kong' date +'%Y-%m-%d %H:%M') HKT"
+            git push
+          fi
