@@ -1,4 +1,5 @@
 run_all.py
 map_generator.py
+notify_status.py
 scrapers/
 data/

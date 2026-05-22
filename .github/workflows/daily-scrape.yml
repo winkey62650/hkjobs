@@ -48,7 +48,27 @@ jobs:
           git add data/jobs.json index.html version.json
           if git diff --cached --quiet; then
             echo "数据无变化，跳过提交"
-          else
-            git commit -m "chore: job data update $(TZ='Asia/Hong_Kong' date +'%Y-%m-%d %H:%M') HKT"
-            git push
+            exit 0
           fi
+          git commit -m "chore: job data update $(TZ='Asia/Hong_Kong' date +'%Y-%m-%d %H:%M') HKT"
+          # 推送；失败则 rebase 后重试，最多 3 次（防并发提交冲突）
+          for i in 1 2 3; do
+            if git push; then echo "✅ 推送成功"; exit 0; fi
+            echo "推送失败，第 $i 次，rebase 后重试…"
+            git pull --rebase origin main || true
+            sleep 5
+          done
+          echo "::error::推送多次失败"
+          exit 1
+
+      - name: Alert on failure
+        if: failure()
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID:   ${{ secrets.TG_CHAT_ID }}
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TG_CHAT_ID}" \
+            --data-urlencode "text=🔴 秒投爬虫运行失败（$(TZ='Asia/Hong_Kong' date +'%m-%d %H:%M') HKT）
+请查看：https://github.com/winkey62650/hkjobs/actions" \
+            || true

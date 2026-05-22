@@ -221,6 +221,7 @@ for name, grp in loc_groups.items():
 js_data = json.dumps(js_locations, ensure_ascii=False)
 
 # 更新时间（转香港时间 UTC+8）
+latest_ts = ""
 try:
     latest_ts = max((j.get("scraped_at","") for j in data), default="")
     if latest_ts:
@@ -511,7 +512,7 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
       <span class="slogan">你的一键求职搭子</span>
     </div>
     <div class="hdr-meta">
-      <span class="hdr-info">共 <strong id="total-count">{total_located}</strong> 个职位 · 昨日新增 <strong>{new_yesterday}</strong> · 更新于 {update_str} HKT</span>
+      <span class="hdr-info">共 <strong id="total-count">{total_located}</strong> 个职位 · 昨日新增 <strong>{new_yesterday}</strong> · 更新于 {update_str} HKT<span id="stale-warn"></span></span>
       <span class="src-badges">{source_badge_html}</span>
     </div>
   </div>
@@ -580,6 +581,22 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans
 const LOCATIONS = {js_data};
 const ALL_JOBS  = LOCATIONS.flatMap(l => l.jobs);
 let currentView = 'map';
+
+// ── 数据新鲜度检查 —— 停更过久就在顶栏红字警示 ───────────────────────────────
+(function(){{
+  const ts = Date.parse("{latest_ts}");
+  if (!ts) return;
+  const hrs = (Date.now() - ts) / 3600000;
+  if (hrs >= 6) {{
+    const el = document.getElementById('stale-warn');
+    if (el) {{
+      el.textContent = ' · ⚠️ 数据已 ' +
+        (hrs >= 24 ? Math.floor(hrs / 24) + ' 天' : Math.floor(hrs) + ' 小时') +
+        '未更新';
+      el.style.cssText = 'color:#b91c1c;font-weight:800';
+    }}
+  }}
+}})();
 
 const isMobile = window.matchMedia('(max-width:768px)').matches;
 const map = L.map('map', {{

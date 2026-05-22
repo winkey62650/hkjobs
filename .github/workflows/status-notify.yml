@@ -1,0 +1,30 @@
+name: Status to Telegram
+
+on:
+  schedule:
+    # 每天两次 —— 01:00 / 13:00 UTC = 09:00 / 21:00 香港时间
+    - cron: "0 1,13 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Send status to Telegram
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID:   ${{ secrets.TG_CHAT_ID }}
+          GH_TOKEN:     ${{ secrets.GITHUB_TOKEN }}
+        run: python3 notify_status.py
