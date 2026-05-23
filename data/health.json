@@ -1,7 +1,7 @@
 {
-  "overall": "ok",
-  "checked_at": "2026-05-23T09:18:59Z",
-  "since": "2026-05-23T07:13:18Z",
+  "overall": "down",
+  "checked_at": "2026-05-23T10:50:38Z",
+  "since": "2026-05-23T10:50:38Z",
   "checks": [
     {
       "name": "网页·首页",
@@ -31,12 +31,12 @@
     {
       "name": "数据新鲜度",
       "ok": true,
-      "msg": "2543 个职位 · 1.7h 前更新"
+      "msg": "2587 个职位 · 0.8h 前更新"
     },
     {
       "name": "爬虫运行",
-      "ok": true,
-      "msg": "近 3 小时 ✅1 ❌0"
+      "ok": false,
+      "msg": "查询失败：HTTP Error 401: Unauthorized"
     }
   ]
 }
