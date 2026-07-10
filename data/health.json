@@ -1,27 +1,27 @@
 {
-  "overall": "ok",
-  "checked_at": "2026-07-10T02:30:29Z",
-  "since": "2026-07-09T14:02:52Z",
+  "overall": "down",
+  "checked_at": "2026-07-10T06:39:37Z",
+  "since": "2026-07-10T06:39:37Z",
   "checks": [
     {
       "name": "网页·首页",
-      "ok": true,
-      "msg": "HTTP 200"
+      "ok": false,
+      "msg": "HTTP 404"
     },
     {
       "name": "网页·欢迎页",
-      "ok": true,
-      "msg": "HTTP 200"
+      "ok": false,
+      "msg": "HTTP 404"
     },
     {
       "name": "网页·收藏页",
-      "ok": true,
-      "msg": "HTTP 200"
+      "ok": false,
+      "msg": "HTTP 404"
     },
     {
       "name": "网页·简历页",
-      "ok": true,
-      "msg": "HTTP 200"
+      "ok": false,
+      "msg": "HTTP 404"
     },
     {
       "name": "API/数据库",
@@ -31,7 +31,7 @@
     {
       "name": "数据新鲜度",
       "ok": true,
-      "msg": "24786 个职位 · 2.3h 前更新"
+      "msg": "24989 个职位 · 1.7h 前更新"
     },
     {
       "name": "爬虫运行",
